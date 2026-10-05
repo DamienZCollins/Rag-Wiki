@@ -85,10 +85,33 @@ curl http://localhost:8080/v3/api-docs
 
 Swagger UI 在 http://localhost:8080/swagger-ui/index.html
 
+## 检索接口
+
+先建索引（离线批处理，可重复执行）：
+
+```bash
+curl -X POST http://localhost:8080/api/rag/index/rebuild
+```
+
+再检索：
+
+```bash
+curl -X POST http://localhost:8080/api/rag/search \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"退货运费谁出"}'
+```
+
+返回里同时给出两路各自的原始分与名次，以及 RRF 融合分。
+`refused=true` 表示两路最高原始分都低于各自阈值，此时 `chunks` 为空。
+
+拒答判定用的是**单路原始分**，不是融合分——融合分只反映名次，没有绝对量纲。
+两个阈值在 `config/application.yml` 的 `rag.refuse.*`，是拿真 embedding 在语料上标定出来的
+（当前语料 + Qwen3-Embedding-0.6B 下，完全无关问题的向量分上限约 0.71，范围内问题下限约 0.74）。
+**换 embedding 模型、扩语料、改切分策略都要重新标定**，标定方法见 `docs/拆分任务/阶段3/阶段3-验收记录.md` 第 6 节。
+
 ## 对话接口
 
 `POST /api/chat`，以 SSE 推送事件。
-
 ```bash
 curl -N -X POST http://localhost:8080/api/chat \
   -H 'Content-Type: application/json' \
@@ -126,19 +149,19 @@ java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location
 
 ```text
 ├── .gitattributes            统一换行符为 LF，避免 clone 后脚本在 Git Bash 下失效
-├── .env.example              环境变量模板，含三组模型配置
+├── .env.example              环境变量模板：连接、端口、模型凭据
 ├── pom.xml                   Spring Boot 3.5 + Java 21
 ├── docker-compose.yml        本地中间件：MySQL / Redis / ES
 ├── config/
-│   ├── application.yml       Spring Boot 配置模板，全 ${VAR:default}，入库
+│   ├── application.yml       Spring Boot 配置模板 + 全部调优参数默认值，全 ${VAR:default}，入库
 │   └── application-local.yml.example  个人密钥覆盖示例，入库
 ├── sql/
 │   ├── schema.sql            建表脚本，可重复执行
 │   └── seed.sql              演示订单数据（query_order 工具的数据源）
 ├── src/main/java/com/ragwiki/
 │   ├── RagWikiApplication.java
-│   ├── common/               公共层：统一返回体、错误码、全局异常、模型客户端
-│   ├── config/               装配层：数据源、MyBatis-Plus、OpenAPI 等 Bean 装配
+│   ├── common/               公共层：统一返回体、错误码、全局异常、模型客户端、Markdown 解析
+│   ├── config/               装配层：数据源、MyBatis-Plus、ES、OpenAPI 等 Bean 装配
 │   ├── agent/                Agent 内核：协议、主循环、工具、会话与事件存储
 │   ├── wiki/                 LLM Wiki：编译、双链、增量、失效检测、lint、快通道
 │   ├── rag/                  RAG：切分、索引同步、双路召回、RRF、拒答
@@ -168,6 +191,13 @@ config/application-local.yml          个人覆盖，gitignore
 config/application-local.yml.example  覆盖示例，入库
 ```
 
+**`.env` 只放跟本机环境绑定的值**：中间件连接、端口、模型凭据。
+检索参数、切分参数、拒答阈值、Agent 步数这些调优值只写在 `config/application.yml` 里一处。
+
+这不是洁癖：调优参数如果在两处各写一份默认值，必然漂移——改了一处以为生效，
+实际被另一处盖住，排查起来很费时间（阶段 3 标定拒答阈值时就踩过一次）。
+需要临时覆盖时，把 `application.yml` 里 `${}` 中的变量名设进环境即可。
+
 应用启动时从仓库根的 `config/` 目录额外加载配置：
 
 ```bash
@@ -183,6 +213,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 | `model.compile` | Wiki 离线编译 | `COMPILE_` |
 
 ⚠️ `EMBEDDING_DIMENSIONS` 必须与 ES 索引 `dense_vector` 的 `dims` 一致，改动即需重建索引。
+应用启动时会校验，不一致直接启动失败。
 
 ## 本地服务地址
 
@@ -211,7 +242,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 | 0 | 仓库与环境：中间件编排、配置规范、语料 | 已完成 |
 | 1 | Spring Boot 骨架 | 已完成 |
 | 2 | Agent 最小闭环（主循环 / SSE / 工具调用） | 已完成 |
-| 3 | RAG 基础闭环（混合召回 / RRF / 引用 / 拒答） | 未开始 |
+| 3 | RAG 基础闭环（混合召回 / RRF / 引用 / 拒答） | 已完成 |
 | 4 | LLM Wiki 编译（归并 / 双链 / 增量 / 失效 / lint） | 未开始 |
 | 5 | 快通道与快慢分流 | 未开始 |
 | 6 | 评测体系（分层归因 / 对比实验 / 回归门禁） | 未开始 |
