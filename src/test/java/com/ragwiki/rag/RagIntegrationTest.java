@@ -43,6 +43,8 @@ class RagIntegrationTest {
         registry.add("model.embedding.base-url", stub::baseUrl);
         registry.add("model.embedding.api-key", () -> "stub-key");
         registry.add("model.embedding.model", () -> "stub-embedding");
+        // 这一组用例针对原始政策文档索引；Wiki 索引由 RagRefusalIntegrationTest 覆盖
+        registry.add("rag.index.source", () -> "doc");
 
         // 拒答阈值放宽到「只挡住完全没有信号的问题」。
         // 桩向量是按字符哈希出来的，分数分布和真模型完全不同，

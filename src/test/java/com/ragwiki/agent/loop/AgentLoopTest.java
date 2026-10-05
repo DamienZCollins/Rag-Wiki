@@ -16,6 +16,7 @@ import com.ragwiki.common.model.dto.ChatCompletion;
 import com.ragwiki.common.model.dto.ChatMessage;
 import com.ragwiki.common.model.dto.ToolCallRequest;
 import com.ragwiki.common.result.ResultCode;
+import com.ragwiki.wiki.api.FastPathApi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,7 @@ class AgentLoopTest {
     private final ConversationStore conversationStore = mock(ConversationStore.class);
     private final EventStore eventStore = mock(EventStore.class);
     private final ConversationHistory conversationHistory = mock(ConversationHistory.class);
+    private final FastPathApi fastPathApi = mock(FastPathApi.class);
 
     private AgentLoop agentLoop;
     private List<Event> events;
@@ -52,7 +54,9 @@ class AgentLoopTest {
     void setUp() {
         AgentProperties properties = new AgentProperties(MAX_STEPS, Duration.ofSeconds(60), 40);
         agentLoop = new AgentLoop(chatClient, toolRegistry, conversationStore, eventStore,
-                conversationHistory, properties, new ObjectMapper());
+                conversationHistory, properties, new ObjectMapper(), fastPathApi);
+        // 这些用例针对的是慢通道的内层循环，快通道一律判未命中
+        when(fastPathApi.answer(anyString())).thenReturn(FastPathApi.Answer.miss());
 
         Conversation conversation = new Conversation();
         conversation.setId(1L);
@@ -96,7 +100,7 @@ class AgentLoopTest {
     @Test
     void feedsToolResultBackAndContinuesToNextRound() {
         List<List<ChatMessage>> seenContexts = new ArrayList<>();
-        when(toolRegistry.invoke(eq("query_order"), anyString()))
+        when(toolRegistry.invoke(eq("query_order"), anyString(), any()))
                 .thenReturn(ToolOutcome.ok("状态：已签收"));
 
         when(chatClient.stream(any(), any(), any())).thenAnswer(invocation -> {
@@ -133,7 +137,7 @@ class AgentLoopTest {
 
     @Test
     void stopsAtMaxStepsWhenToolCallsNeverConverge() {
-        when(toolRegistry.invoke(anyString(), anyString())).thenReturn(ToolOutcome.ok("结果"));
+        when(toolRegistry.invoke(anyString(), anyString(), any())).thenReturn(ToolOutcome.ok("结果"));
         when(chatClient.stream(any(), any(), any())).thenReturn(new ChatCompletion(null, List.of(
                 ToolCallRequest.of("call_1", "query_order", "{}")), "tool_calls"));
 

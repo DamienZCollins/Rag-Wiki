@@ -33,7 +33,7 @@ class SearchKnowledgeToolTest {
                 citation("policy-member-benefit#2", "金卡及以上会员上限 30 元/单。"))));
         SearchKnowledgeTool tool = new SearchKnowledgeTool(api);
 
-        ToolOutcome outcome = tool.execute(Map.of("question", "运费最多补多少"));
+        ToolOutcome outcome = tool.execute(Map.of("question", "运费最多补多少"), ToolContext.empty());
 
         assertThat(outcome.success()).isTrue();
         String content = outcome.content();
@@ -51,7 +51,7 @@ class SearchKnowledgeToolTest {
     void returnsMissPayloadWhenRetrievalRefused() {
         SearchKnowledgeTool tool = new SearchKnowledgeTool(apiReturning(KnowledgeSearchOutcome.miss()));
 
-        ToolOutcome outcome = tool.execute(Map.of("question", "怎么申请营业执照"));
+        ToolOutcome outcome = tool.execute(Map.of("question", "怎么申请营业执照"), ToolContext.empty());
 
         // 检索没找到依据不算工具执行失败，只是没有结果，由模型决定怎么回应
         assertThat(outcome.success()).isTrue();
@@ -68,7 +68,7 @@ class SearchKnowledgeToolTest {
         SearchKnowledgeTool tool = new SearchKnowledgeTool(apiReturning(
                 new KnowledgeSearchOutcome(true, List.copyOf(citations))));
 
-        String content = tool.execute(Map.of("question", "随便问问")).content();
+        String content = tool.execute(Map.of("question", "随便问问"), ToolContext.empty()).content();
 
         assertThat(content).contains("[1]");
         // 融合后排在后面的片段是最不相关的，超预算就从尾部丢

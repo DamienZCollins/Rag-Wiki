@@ -45,6 +45,8 @@ class RagRefusalIntegrationTest {
         registry.add("model.embedding.base-url", stub::baseUrl);
         registry.add("model.embedding.api-key", () -> "stub-key");
         registry.add("model.embedding.model", () -> "stub-embedding");
+        // 走 Wiki 条目索引：这批用例只需要「能跑通重建与检索」，顺带覆盖另一条索引源
+        registry.add("rag.index.source", () -> "wiki");
         // 余弦相似度最大是 1，BM25 分理论上无上界，两个阈值都抬到够不着
         registry.add("rag.refuse.bm25-threshold", () -> 1_000_000.0);
         registry.add("rag.refuse.vector-threshold", () -> 1.5);
