@@ -91,6 +91,14 @@ model:
     max-tokens: ${COMPILE_MAX_TOKENS:8192}
     timeout: ${COMPILE_TIMEOUT:180s}
 
+# ---------- Agent 内核 ----------
+agent:
+  # 内层循环单轮的模型调用步数上限，防止工具调用不收敛
+  max-steps: ${AGENT_MAX_STEPS:6}
+  sse-timeout: ${AGENT_SSE_TIMEOUT:180s}
+  # 恢复会话上下文时最多带多少条历史消息
+  max-history-messages: ${AGENT_HISTORY_MAX_MESSAGES:40}
+
 # ---------- 检索 ----------
 rag:
   index:
