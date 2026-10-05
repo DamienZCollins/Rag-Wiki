@@ -45,11 +45,20 @@ public class KnowledgeSearchService implements KnowledgeSearchApi {
 
     /** 带完整中间结果的检索，给 HTTP 接口和验收用 */
     public SearchOutcome searchDetailed(String question) {
-        indexAdmin.requireIndexReady();
+        return searchDetailed(question, null);
+    }
+
+    /**
+     * @param indexOverride 指定物理索引，用于索引源对照实验；为空时走别名
+     */
+    public SearchOutcome searchDetailed(String question, String indexOverride) {
+        if (indexOverride == null) {
+            indexAdmin.requireIndexReady();
+        }
 
         int window = properties.candidateWindow();
-        List<ChunkHit> bm25Hits = bm25Searcher.search(question, window);
-        List<ChunkHit> vectorHits = vectorSearcher.search(question, window);
+        List<ChunkHit> bm25Hits = bm25Searcher.search(question, window, indexOverride);
+        List<ChunkHit> vectorHits = vectorSearcher.search(question, window, indexOverride);
 
         double topBm25 = RefusalJudge.topScore(bm25Hits);
         double topVector = RefusalJudge.topScore(vectorHits);
@@ -74,6 +83,8 @@ public class KnowledgeSearchService implements KnowledgeSearchApi {
             citations.add(new KnowledgeSearchOutcome.Citation(
                     chunk.meta().chunkId(),
                     chunk.meta().docId(),
+                    chunk.meta().pageId(),
+                    chunk.meta().sourceDocs(),
                     chunk.meta().title(),
                     chunk.meta().version(),
                     chunk.meta().headingPath(),

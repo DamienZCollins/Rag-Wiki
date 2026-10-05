@@ -32,7 +32,14 @@ public class Bm25Searcher {
     }
 
     public List<ChunkHit> search(String question, int window) {
-        SearchResponse<KnowledgeChunk> response = execute(question, window);
+        return search(question, window, null);
+    }
+
+    /**
+     * @param indexOverride 指定物理索引，用于索引源对照实验；为空时走别名
+     */
+    public List<ChunkHit> search(String question, int window, String indexOverride) {
+        SearchResponse<KnowledgeChunk> response = execute(question, window, indexOverride);
 
         List<ChunkHit> hits = new ArrayList<>();
         int rank = 1;
@@ -45,10 +52,11 @@ public class Bm25Searcher {
         return hits;
     }
 
-    private SearchResponse<KnowledgeChunk> execute(String question, int window) {
+    private SearchResponse<KnowledgeChunk> execute(String question, int window, String indexOverride) {
+        String index = indexOverride == null ? properties.index().alias() : indexOverride;
         try {
             return client.search(request -> request
-                            .index(properties.index().alias())
+                            .index(index)
                             .size(window)
                             .query(query -> query.bool(bool -> bool
                                     .must(must -> must.multiMatch(multi -> multi

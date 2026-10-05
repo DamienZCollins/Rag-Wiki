@@ -36,13 +36,15 @@ public class RagController {
             拒答判定用的是原始分（融合分只反映名次，没有绝对量纲）。""")
     @PostMapping("/search")
     public Result<SearchResponse> search(@Valid @RequestBody RagSearchRequest request) {
-        SearchOutcome outcome = searchService.searchDetailed(request.question());
+        SearchOutcome outcome = searchService.searchDetailed(request.question(), request.index());
 
         List<SearchResponse.Chunk> chunks = new ArrayList<>(outcome.chunks().size());
         for (FusedChunk chunk : outcome.chunks()) {
             chunks.add(new SearchResponse.Chunk(
                     chunk.meta().chunkId(),
                     chunk.meta().docId(),
+                    chunk.meta().pageId(),
+                    chunk.meta().sourceDocs(),
                     chunk.meta().title(),
                     chunk.meta().headingPath(),
                     chunk.meta().content(),

@@ -28,18 +28,18 @@ public class IndexSyncService {
     private static final Logger log = LoggerFactory.getLogger(IndexSyncService.class);
 
     private final ElasticsearchClient client;
-    private final CorpusLoader corpusLoader;
+    private final SourceDocumentReader sourceReader;
     private final EmbeddingClient embeddingClient;
     private final IndexAdmin indexAdmin;
     private final RagProperties properties;
 
     public IndexSyncService(ElasticsearchClient client,
-                            CorpusLoader corpusLoader,
+                            SourceDocumentReader sourceReader,
                             EmbeddingClient embeddingClient,
                             IndexAdmin indexAdmin,
                             RagProperties properties) {
         this.client = client;
-        this.corpusLoader = corpusLoader;
+        this.sourceReader = sourceReader;
         this.embeddingClient = embeddingClient;
         this.indexAdmin = indexAdmin;
         this.properties = properties;
@@ -54,7 +54,7 @@ public class IndexSyncService {
         String physical = indexAdmin.physicalIndexName();
         indexAdmin.recreateIndex();
 
-        List<SourceDocument> documents = corpusLoader.load();
+        List<SourceDocument> documents = sourceReader.read();
         int chunks = 0;
         for (SourceDocument document : documents) {
             chunks += indexDocument(physical, document);
@@ -85,8 +85,10 @@ public class IndexSyncService {
         for (int i = 0; i < pieces.size(); i++) {
             ChunkSplitter.Piece piece = pieces.get(i);
             chunks.add(new KnowledgeChunk(
-                    chunkId(document.docId(), i),
+                    chunkId(document, i),
                     document.docId(),
+                    document.pageId(),
+                    document.sourceDocs(),
                     document.title(),
                     piece.headingPath(),
                     piece.content(),
@@ -134,7 +136,9 @@ public class IndexSyncService {
         }
     }
 
-    private static String chunkId(String docId, int index) {
-        return docId + "#" + index;
+    /** 片段 id 用索引源的标识拼，重建写的是同一批 id，重复执行不产生重复数据 */
+    private static String chunkId(SourceDocument document, int index) {
+        String owner = document.pageId() != null ? document.pageId() : document.docId();
+        return owner + "#" + index;
     }
 }

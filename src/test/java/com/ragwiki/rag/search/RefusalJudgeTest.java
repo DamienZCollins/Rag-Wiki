@@ -56,6 +56,6 @@ class RefusalJudgeTest {
     }
 
     private static List<ChunkHit> hits(double score) {
-        return List.of(new ChunkHit(new ChunkMeta("c#0", "doc", "标题", "小节", "正文", "类目", "v1"), score, 1));
+        return List.of(new ChunkHit(new ChunkMeta("c#0", "doc", null, List.of("doc"), "标题", "小节", "正文", "类目", "v1"), score, 1));
     }
 }

@@ -20,6 +20,8 @@ public record SearchResponse(
     public record Chunk(
             String chunkId,
             String docId,
+            @Schema(description = "Wiki 条目标识，索引源是原始文档时为空") String pageId,
+            @Schema(description = "全部来源 doc_id") List<String> sourceDocs,
             String title,
             @Schema(description = "标题路径，如「运费收取与承担规则 > 运费补贴上限」") String headingPath,
             String content,

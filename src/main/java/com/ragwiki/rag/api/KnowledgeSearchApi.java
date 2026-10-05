@@ -22,6 +22,10 @@ public interface KnowledgeSearchApi {
         public record Citation(
                 String chunkId,
                 String docId,
+                /** Wiki 条目标识，索引源是原始文档时为空 */
+                String pageId,
+                /** 全部来源 doc_id */
+                java.util.List<String> sourceDocs,
                 String title,
                 String version,
                 String headingPath,

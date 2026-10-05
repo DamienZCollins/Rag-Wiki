@@ -36,6 +36,13 @@ public class VectorSearcher {
     }
 
     public List<ChunkHit> search(String question, int window) {
+        return search(question, window, null);
+    }
+
+    /**
+     * @param indexOverride 指定物理索引，用于索引源对照实验；为空时走别名
+     */
+    public List<ChunkHit> search(String question, int window, String indexOverride) {
         float[] queryVector = embeddingClient.embed(question);
         List<Float> vector = new ArrayList<>(queryVector.length);
         for (float value : queryVector) {
@@ -44,7 +51,7 @@ public class VectorSearcher {
 
         // kNN 的候选池要比返回条数大，否则近邻图搜索会漏
         int candidates = Math.max(window * 2, MIN_CANDIDATES);
-        SearchResponse<KnowledgeChunk> response = execute(vector, window, candidates);
+        SearchResponse<KnowledgeChunk> response = execute(vector, window, candidates, indexOverride);
 
         List<ChunkHit> hits = new ArrayList<>();
         int rank = 1;
@@ -58,10 +65,11 @@ public class VectorSearcher {
         return hits;
     }
 
-    private SearchResponse<KnowledgeChunk> execute(List<Float> vector, int window, int candidates) {
+    private SearchResponse<KnowledgeChunk> execute(List<Float> vector, int window, int candidates, String indexOverride) {
+        String index = indexOverride == null ? properties.index().alias() : indexOverride;
         try {
             return client.search(request -> request
-                            .index(properties.index().alias())
+                            .index(index)
                             .size(window)
                             .knn(knn -> knn
                                     .field(VECTOR_FIELD)

@@ -21,7 +21,8 @@ class SearchKnowledgeToolTest {
     }
 
     private static Citation citation(String chunkId, String content) {
-        return new Citation(chunkId, chunkId.split("#")[0], "运费收取与承担规则", "v2025.1",
+        return new Citation(chunkId, chunkId.split("#")[0], null, List.of(chunkId.split("#")[0]),
+                "运费收取与承担规则", "v2025.1",
                 "运费收取与承担规则 > 运费补贴上限", content);
     }
 
