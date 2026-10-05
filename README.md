@@ -56,6 +56,7 @@ python scripts/check-corpus.py
 ## 目录结构
 
 ```text
+├── .gitattributes            统一换行符为 LF，避免 clone 后脚本在 Git Bash 下失效
 ├── .env.example              环境变量模板，含三组模型配置
 ├── docker-compose.yml        本地中间件：MySQL / Redis / ES
 ├── config/
@@ -67,7 +68,7 @@ python scripts/check-corpus.py
 │   └── README.md             格式说明与刻意埋设的验证点
 └── scripts/
     ├── dev.sh                中间件管理（bash）
-    ├── dev.ps1               中间件管理（PowerShell）
+    ├── dev.ps1               中间件管理（PowerShell，需保持 UTF-8 BOM）
     └── check-corpus.py       语料校验
 ```
 
