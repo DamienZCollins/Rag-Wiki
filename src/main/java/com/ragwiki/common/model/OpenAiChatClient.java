@@ -8,6 +8,7 @@ import com.ragwiki.common.exception.BusinessException;
 import com.ragwiki.common.model.dto.ChatCompletion;
 import com.ragwiki.common.model.dto.ChatMessage;
 import com.ragwiki.common.model.dto.ChatTool;
+import com.ragwiki.common.model.dto.ChatUsage;
 import com.ragwiki.common.model.dto.ToolCallRequest;
 import com.ragwiki.common.result.ResultCode;
 import org.slf4j.Logger;
@@ -116,6 +117,7 @@ public class OpenAiChatClient implements ChatClient {
 
         StringBuilder content = new StringBuilder();
         Map<Integer, PartialToolCall> toolCalls = new LinkedHashMap<>();
+        ChatUsage[] usage = {ChatUsage.EMPTY};
         String finishReason = null;
 
         try (BufferedReader reader = new BufferedReader(
@@ -132,7 +134,7 @@ public class OpenAiChatClient implements ChatClient {
                 if (DONE.equals(data)) {
                     break;
                 }
-                finishReason = handleChunk(data, content, toolCalls, onTextDelta);
+                finishReason = handleChunk(data, content, toolCalls, usage, onTextDelta);
             }
         }
 
@@ -141,13 +143,15 @@ public class OpenAiChatClient implements ChatClient {
         return new ChatCompletion(
                 content.isEmpty() ? null : content.toString(),
                 toToolCalls(toolCalls),
-                finishReason);
+                finishReason,
+                usage[0]);
     }
 
     /** 处理一个分片，返回其中携带的 finish_reason（没有则返回 null） */
     private String handleChunk(String data,
                                StringBuilder content,
                                Map<Integer, PartialToolCall> toolCalls,
+                               ChatUsage[] usage,
                                Consumer<String> onTextDelta) {
         JsonNode chunk;
         try {
@@ -155,6 +159,16 @@ public class OpenAiChatClient implements ChatClient {
         } catch (IOException e) {
             throw new BusinessException(ResultCode.MODEL_RESPONSE_INVALID,
                     "模型分片不是合法 JSON：" + abbreviate(data));
+        }
+
+        // 用量信息可能单独一个分片给，也可能伴随 finish_reason 给，见到就收
+        JsonNode usageNode = chunk.get("usage");
+        if (usageNode != null && !usageNode.isNull()) {
+            try {
+                usage[0] = objectMapper.treeToValue(usageNode, ChatUsage.class);
+            } catch (Exception e) {
+                log.debug("用量分片无法解析，忽略：{}", usageNode);
+            }
         }
 
         JsonNode choices = chunk.path("choices");
