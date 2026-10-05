@@ -50,7 +50,7 @@ public class QueryOrderTool implements Tool {
     }
 
     @Override
-    public ToolOutcome execute(Map<String, Object> arguments) {
+    public ToolOutcome execute(Map<String, Object> arguments, ToolContext context) {
         String orderNo = String.valueOf(arguments.get("orderNo")).trim();
         OrderInfo order = orderInfoMapper.selectOne(
                 Wrappers.<OrderInfo>lambdaQuery().eq(OrderInfo::getOrderNo, orderNo));

@@ -54,7 +54,7 @@ public class ToolRegistry {
      *
      * @param rawArguments 模型给出的参数，协议上是 JSON 字符串
      */
-    public ToolOutcome invoke(String name, String rawArguments) {
+    public ToolOutcome invoke(String name, String rawArguments, ToolContext context) {
         Tool tool = tools.get(name);
         if (tool == null) {
             return structuredError("TOOL_NOT_FOUND", "没有名为 " + name + " 的工具，可用工具：" + tools.keySet());
@@ -73,7 +73,7 @@ public class ToolRegistry {
         }
 
         try {
-            return tool.execute(arguments);
+            return tool.execute(arguments, context);
         } catch (Exception e) {
             log.error("工具执行异常 name={} arguments={}", name, arguments, e);
             return structuredError("TOOL_EXECUTION_FAILED", "工具执行失败：" + e.getMessage());

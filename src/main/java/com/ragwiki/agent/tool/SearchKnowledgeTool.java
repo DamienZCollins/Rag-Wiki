@@ -55,7 +55,7 @@ public class SearchKnowledgeTool implements Tool {
     }
 
     @Override
-    public ToolOutcome execute(Map<String, Object> arguments) {
+    public ToolOutcome execute(Map<String, Object> arguments, ToolContext context) {
         String question = String.valueOf(arguments.get("question")).trim();
         KnowledgeSearchOutcome outcome = knowledgeSearchApi.search(question);
 

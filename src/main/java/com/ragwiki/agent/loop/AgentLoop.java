@@ -14,7 +14,10 @@ import com.ragwiki.common.model.ChatClient;
 import com.ragwiki.common.model.dto.ChatCompletion;
 import com.ragwiki.common.model.dto.ChatMessage;
 import com.ragwiki.common.model.dto.ChatTool;
+import com.ragwiki.common.model.dto.ChatUsage;
 import com.ragwiki.common.model.dto.ToolCallRequest;
+import com.ragwiki.agent.tool.ToolContext;
+import com.ragwiki.wiki.api.FastPathApi;
 import com.ragwiki.common.result.ResultCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +63,7 @@ public class AgentLoop {
     private final ConversationHistory conversationHistory;
     private final AgentProperties properties;
     private final ObjectMapper objectMapper;
+    private final FastPathApi fastPathApi;
 
     public AgentLoop(ChatClient chatClient,
                      ToolRegistry toolRegistry,
@@ -67,7 +71,8 @@ public class AgentLoop {
                      EventStore eventStore,
                      ConversationHistory conversationHistory,
                      AgentProperties properties,
-                     ObjectMapper objectMapper) {
+                     ObjectMapper objectMapper,
+                     FastPathApi fastPathApi) {
         this.chatClient = chatClient;
         this.toolRegistry = toolRegistry;
         this.conversationStore = conversationStore;
@@ -75,6 +80,7 @@ public class AgentLoop {
         this.conversationHistory = conversationHistory;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.fastPathApi = fastPathApi;
     }
 
     public void run(Op op, EventSink sink) {
@@ -99,10 +105,26 @@ public class AgentLoop {
         context.add(ChatMessage.user(input.text()));
 
         EventRecorder recorder = new EventRecorder(conversationId, sink);
+        ChatUsage[] usage = {ChatUsage.EMPTY};
+        long startedAtNanos = System.nanoTime();
+        // 快通道有没有答上：答上了就不再记慢通道日志。内核是单例，这类状态必须是局部的
+        boolean fastPathHit = false;
         try {
             recorder.emit(new Event.Started(input.sessionId(), input.text()));
             persistMessage(conversationId, ROLE_USER, input.text(), null, null);
-            runInnerLoop(conversationId, context, recorder);
+
+            // 先试快通道：命中就直答，全程零模型调用、零向量检索
+            FastPathApi.Answer fast = tryFastPath(input.text());
+            fastPathHit = fast.hit();
+            if (fastPathHit) {
+                log.debug("快通道命中 {}，本轮不调用模型", fast.entryId());
+                recorder.emit(new Event.TextDelta(fast.answer()));
+                persistMessage(conversationId, ROLE_ASSISTANT, fast.answer(), null, null);
+                recorder.emit(new Event.Finished(Event.FinishReason.COMPLETED));
+                return;
+            }
+
+            runInnerLoop(conversationId, input.sessionId(), context, recorder, usage);
         } catch (ClientDisconnectedException e) {
             log.info("客户端已断开，终止生成 sessionId={}", input.sessionId());
         } catch (BusinessException e) {
@@ -115,6 +137,31 @@ public class AgentLoop {
             recorder.emitQuietly(new Event.Error(
                     String.valueOf(ResultCode.SYSTEM_ERROR.code()), ResultCode.SYSTEM_ERROR.message()));
             recorder.emitQuietly(new Event.Finished(Event.FinishReason.FAILED));
+        } finally {
+            // 放在 finally 是为了失败的一轮也留下记录
+            if (!fastPathHit) {
+                recordSlowPath(input.text(), startedAtNanos, usage[0], conversationId);
+            }
+        }
+    }
+
+    /** 快通道自己出问题不能把整轮卡死，异常一律当作未命中，降级走 RAG */
+    private FastPathApi.Answer tryFastPath(String question) {
+        try {
+            return fastPathApi.answer(question);
+        } catch (Exception e) {
+            log.error("快通道异常，降级到 RAG：{}", e.getMessage());
+            return FastPathApi.Answer.miss();
+        }
+    }
+
+    private void recordSlowPath(String question, long startedAtNanos, ChatUsage usage, Long conversationId) {
+        long latencyMillis = (System.nanoTime() - startedAtNanos) / 1_000_000;
+        try {
+            fastPathApi.recordSlowPath(question, latencyMillis,
+                    usage.prompt(), usage.completion(), conversationId);
+        } catch (Exception e) {
+            log.error("慢通道提问日志记录失败，不影响本轮输出", e);
         }
     }
 
@@ -127,13 +174,15 @@ public class AgentLoop {
         }
     }
 
-    private void runInnerLoop(Long conversationId, List<ChatMessage> context, EventRecorder recorder) {
+    private void runInnerLoop(Long conversationId, String sessionId, List<ChatMessage> context,
+                              EventRecorder recorder, ChatUsage[] usage) {
         List<ChatTool> tools = toolRegistry.specs();
 
         for (int step = 1; step <= properties.maxSteps(); step++) {
             recorder.emit(new Event.Thinking());
             ChatCompletion completion = chatClient.stream(context, tools,
                     delta -> recorder.emit(new Event.TextDelta(delta)));
+            usage[0] = usage[0].plus(completion.usageOrEmpty());
 
             if (!completion.hasToolCalls()) {
                 if (FINISH_REASON_LENGTH.equals(completion.finishReason())) {
@@ -158,7 +207,8 @@ public class AgentLoop {
             }
 
             for (ToolCallRequest call : completion.toolCalls()) {
-                ToolOutcome outcome = toolRegistry.invoke(call.name(), call.arguments());
+                ToolOutcome outcome = toolRegistry.invoke(call.name(), call.arguments(),
+                        new ToolContext(sessionId, conversationId));
                 recorder.emit(new Event.ToolResult(call.id(), call.name(), outcome.success(), outcome.content()));
 
                 context.add(ChatMessage.tool(call.id(), outcome.content()));

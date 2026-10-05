@@ -20,6 +20,8 @@ public interface Tool {
     /**
      * 执行工具。
      * 参数已按 schema 校验过；业务上的失败通过 {@link ToolOutcome#error} 返回，不要抛异常。
+     *
+     * @param context 本轮会话上下文，模型给不了的信息由内核在这里补
      */
-    ToolOutcome execute(Map<String, Object> arguments) throws Exception;
+    ToolOutcome execute(Map<String, Object> arguments, ToolContext context) throws Exception;
 }
