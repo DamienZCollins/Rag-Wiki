@@ -1,0 +1,13 @@
+# 统一换行符为 LF
+# 本机 core.autocrlf=true，若不钉死，clone 出来的 scripts/dev.sh 会带 CRLF，
+# 在 Git Bash 下报 bad interpreter；Windows PowerShell 能正常读取 LF，所以统一 LF 即可
+* text=auto eol=lf
+
+# 二进制文件不做换行符与编码转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary
