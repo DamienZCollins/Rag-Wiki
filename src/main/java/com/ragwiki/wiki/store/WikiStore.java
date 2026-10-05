@@ -1,9 +1,14 @@
 package com.ragwiki.wiki.store;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.ragwiki.wiki.mapper.FastEntryMapper;
+import com.ragwiki.wiki.mapper.QueryLogMapper;
 import com.ragwiki.wiki.mapper.SourceDocMapper;
 import com.ragwiki.wiki.mapper.WikiLinkMapper;
 import com.ragwiki.wiki.mapper.WikiPageMapper;
+import com.ragwiki.wiki.schema.FastEntry;
+import com.ragwiki.wiki.schema.FastEntryStatus;
+import com.ragwiki.wiki.schema.QueryLog;
 import com.ragwiki.wiki.schema.SourceDoc;
 import com.ragwiki.wiki.schema.WikiLink;
 import com.ragwiki.wiki.schema.WikiPage;
@@ -24,13 +29,19 @@ public class WikiStore {
     private final SourceDocMapper sourceDocMapper;
     private final WikiPageMapper wikiPageMapper;
     private final WikiLinkMapper wikiLinkMapper;
+    private final FastEntryMapper fastEntryMapper;
+    private final QueryLogMapper queryLogMapper;
 
     public WikiStore(SourceDocMapper sourceDocMapper,
                      WikiPageMapper wikiPageMapper,
-                     WikiLinkMapper wikiLinkMapper) {
+                     WikiLinkMapper wikiLinkMapper,
+                     FastEntryMapper fastEntryMapper,
+                     QueryLogMapper queryLogMapper) {
         this.sourceDocMapper = sourceDocMapper;
         this.wikiPageMapper = wikiPageMapper;
         this.wikiLinkMapper = wikiLinkMapper;
+        this.fastEntryMapper = fastEntryMapper;
+        this.queryLogMapper = queryLogMapper;
     }
 
     // ---------- 源文档 ----------
@@ -158,5 +169,46 @@ public class WikiStore {
 
     public void deleteAllSourceDocs() {
         sourceDocMapper.delete(Wrappers.<SourceDoc>lambdaQuery());
+    }
+
+    // ---------- 快通道条目 ----------
+
+    public void insertFastEntry(FastEntry entry) {
+        fastEntryMapper.insert(entry);
+    }
+
+    public void updateFastEntry(FastEntry entry) {
+        fastEntryMapper.updateById(entry);
+    }
+
+    public Optional<FastEntry> findFastEntry(String entryId) {
+        return Optional.ofNullable(fastEntryMapper.selectOne(
+                Wrappers.<FastEntry>lambdaQuery().eq(FastEntry::getEntryId, entryId)));
+    }
+
+    public List<FastEntry> listFastEntries(FastEntryStatus status) {
+        return fastEntryMapper.selectList(Wrappers.<FastEntry>lambdaQuery()
+                .eq(FastEntry::getStatus, status)
+                .orderByAsc(FastEntry::getEntryId));
+    }
+
+    public List<FastEntry> listFastEntries(String scene, FastEntryStatus status) {
+        return fastEntryMapper.selectList(Wrappers.<FastEntry>lambdaQuery()
+                .eq(FastEntry::getScene, scene)
+                .eq(FastEntry::getStatus, status)
+                .orderByDesc(FastEntry::getHitCount)
+                .orderByAsc(FastEntry::getEntryId));
+    }
+
+    public void incrementHitCount(Long id) {
+        fastEntryMapper.update(null, Wrappers.<FastEntry>lambdaUpdate()
+                .eq(FastEntry::getId, id)
+                .setSql("hit_count = hit_count + 1"));
+    }
+
+    // ---------- 提问日志 ----------
+
+    public void insertQueryLog(QueryLog log) {
+        queryLogMapper.insert(log);
     }
 }
