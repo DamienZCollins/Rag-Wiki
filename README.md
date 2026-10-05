@@ -85,6 +85,28 @@ curl http://localhost:8080/v3/api-docs
 
 Swagger UI 在 http://localhost:8080/swagger-ui/index.html
 
+## Wiki 编译接口
+
+```bash
+# 全量编译（离线批处理，可重复执行）
+curl -X POST http://localhost:8080/api/wiki/compile -H 'Content-Type: application/json' -d '{"incremental":false}'
+
+# 增量编译：只重算输入变化的文档，并经双链传播带出受影响的条目
+curl -X POST http://localhost:8080/api/wiki/compile -H 'Content-Type: application/json' -d '{"incremental":true}'
+
+# 只编译一篇，允许编译已失效文档（用于复现历史状态）
+curl -X POST http://localhost:8080/api/wiki/compile -H 'Content-Type: application/json' -d '{"sourceDocId":"policy-freight-rule-v2024"}'
+
+# 条目体检
+curl -X POST http://localhost:8080/api/wiki/lint
+curl 'http://localhost:8080/api/wiki/pages?status=ALL'
+```
+
+条目正文落在 `wiki/pages/<page_id>.md`，元数据在 `wiki_page` 表。
+正文结构固定为四段：摘要 / 适用条件 / 例外 / 关联条目——结构固定才好 diff。
+
+**应用不做自动 git 提交**：编译产物该由人看过 diff 之后再提交，应用在后台改仓库状态是意外副作用。
+
 ## 检索接口
 
 先建索引（离线批处理，可重复执行）：
@@ -92,6 +114,16 @@ Swagger UI 在 http://localhost:8080/swagger-ui/index.html
 ```bash
 curl -X POST http://localhost:8080/api/rag/index/rebuild
 ```
+
+索引源由 `rag.index.source` 决定：`doc` 读 `corpus/policies`，`wiki` 读 `wiki/pages`。
+两者写的是不同的物理索引（`knowledge_doc_v1` / `knowledge_wiki_v1`），查询一律走别名
+`knowledge_chunks`。**切换索引源只需要改别名指向**，不用改代码也不用重启：
+
+```bash
+curl -X POST http://localhost:9200/_aliases -H 'Content-Type: application/json' -d '{"actions":[{"remove":{"index":"knowledge_wiki_v1","alias":"knowledge_chunks"}},{"add":{"index":"knowledge_doc_v1","alias":"knowledge_chunks","is_write_index":true}}]}'
+```
+
+改动 `rag.index.source` 只影响「重建时写哪套语料、建哪个物理索引」，不影响在线检索走哪个索引。
 
 再检索：
 
@@ -170,6 +202,8 @@ java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location
 │   ├── policies/             售后政策文档，Markdown + YAML frontmatter
 │   ├── tickets/              历史工单，JSONL
 │   └── README.md             格式说明与刻意埋设的验证点
+├── wiki/
+│   └── pages/                Wiki 编译产物，一个条目一个 Markdown 文件
 └── scripts/
     ├── dev.sh                中间件管理（bash）
     ├── dev.ps1               中间件管理（PowerShell，需保持 UTF-8 BOM）
@@ -243,7 +277,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 | 1 | Spring Boot 骨架 | 已完成 |
 | 2 | Agent 最小闭环（主循环 / SSE / 工具调用） | 已完成 |
 | 3 | RAG 基础闭环（混合召回 / RRF / 引用 / 拒答） | 已完成 |
-| 4 | LLM Wiki 编译（归并 / 双链 / 增量 / 失效 / lint） | 未开始 |
+| 4 | LLM Wiki 编译（归并 / 双链 / 增量 / 失效 / lint） | 已完成 |
 | 5 | 快通道与快慢分流 | 未开始 |
 | 6 | 评测体系（分层归因 / 对比实验 / 回归门禁） | 未开始 |
 | 7 | 收尾与面试表达 | 未开始 |
