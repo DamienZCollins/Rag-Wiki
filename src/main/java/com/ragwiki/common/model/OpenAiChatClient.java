@@ -16,11 +16,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -37,9 +37,11 @@ import java.util.function.Consumer;
 
 /**
  * OpenAI 兼容的对话客户端，走 POST /chat/completions 的流式接口。
- * base-url 在调用时才解析，这样密钥还没配好时也能正常启动应用。
+ *
+ * <p>不是 Spring Bean，由装配层按配置组各建一个实例：
+ * 在线问答用 model.chat，Wiki 离线编译用 model.compile。
+ * base-url 在调用时才解析，密钥还没配好时也能正常启动应用。
  */
-@Component
 public class OpenAiChatClient implements ChatClient {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiChatClient.class);
@@ -47,59 +49,61 @@ public class OpenAiChatClient implements ChatClient {
     private static final String DONE = "[DONE]";
     private static final int ERROR_BODY_LIMIT = 500;
 
-    private final ModelProperties properties;
+    private final ChatModelSettings settings;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
-    public OpenAiChatClient(ModelProperties properties, ObjectMapper objectMapper) {
-        this.properties = properties;
+    public OpenAiChatClient(ChatModelSettings settings, ObjectMapper objectMapper) {
+        this.settings = settings;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().requestFactory(requestFactory(properties.chat())).build();
+        this.restClient = RestClient.builder().requestFactory(requestFactory(settings)).build();
     }
 
-    private static SimpleClientHttpRequestFactory requestFactory(ModelProperties.Chat chat) {
+    private static SimpleClientHttpRequestFactory requestFactory(ChatModelSettings settings) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(10));
-        // 读超时按分片计时：只要上游还在推分片就不会超时，卡住不动才会
-        factory.setReadTimeout(chat.timeout() == null ? Duration.ofSeconds(60) : chat.timeout());
+        Duration timeout = settings == null || settings.timeout() == null
+                ? Duration.ofSeconds(60) : settings.timeout();
+        factory.setReadTimeout(timeout);
         return factory;
     }
 
     @Override
     public ChatCompletion stream(List<ChatMessage> messages, List<ChatTool> tools, Consumer<String> onTextDelta) {
-        ModelProperties.Chat chat = requireConfigured();
-        String url = trimTrailingSlash(chat.baseUrl()) + "/chat/completions";
+        ChatModelSettings configured = requireConfigured();
+        String url = trimTrailingSlash(configured.baseUrl()) + "/chat/completions";
         ChatCompletionRequest body = new ChatCompletionRequest(
-                chat.model(), messages, tools, chat.temperature(), chat.maxTokens());
+                configured.model(), messages, tools, configured.temperature(), configured.maxTokens());
 
         try {
             return restClient.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.TEXT_EVENT_STREAM)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + chat.apiKey())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + configured.apiKey())
                     .body(body)
                     .exchange((request, response) -> readStream(url, response, onTextDelta));
         } catch (BusinessException e) {
             throw e;
         } catch (ResourceAccessException e) {
             throw translateAccessException(url, e);
+        } catch (RestClientResponseException e) {
+            throw translateHttpError(e.getStatusCode(), e.getResponseBodyAsString());
         } catch (RestClientException e) {
             throw new BusinessException(ResultCode.MODEL_RESPONSE_INVALID,
                     "解析模型响应失败：" + e.getMessage());
         }
     }
 
-    private ModelProperties.Chat requireConfigured() {
-        ModelProperties.Chat chat = properties.chat();
-        if (chat == null
-                || !StringUtils.hasText(chat.baseUrl())
-                || !StringUtils.hasText(chat.apiKey())
-                || !StringUtils.hasText(chat.model())) {
+    private ChatModelSettings requireConfigured() {
+        if (settings == null
+                || !StringUtils.hasText(settings.baseUrl())
+                || !StringUtils.hasText(settings.apiKey())
+                || !StringUtils.hasText(settings.model())) {
             throw new BusinessException(ResultCode.MODEL_NOT_CONFIGURED,
-                    "model.chat 的 base-url / api-key / model 未配置完整，检查 .env 与 config/application.yml");
+                    "模型配置的 base-url / api-key / model 不完整，检查 .env 与 config/application.yml");
         }
-        return chat;
+        return settings;
     }
 
     private ChatCompletion readStream(String url,
