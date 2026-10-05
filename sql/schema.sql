@@ -64,8 +64,7 @@ CREATE TABLE IF NOT EXISTS agent_event
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='内核事件';
 
--- ---------- 订单 ----------
--- 售后场景的操作数据，供 query_order 工具查询；不是知识库的一部分
+-- ---------- 订单 ------------ 售后场景的操作数据，供 query_order 工具查询；不是知识库的一部分
 CREATE TABLE IF NOT EXISTS order_info
 (
     id           BIGINT         NOT NULL AUTO_INCREMENT COMMENT '主键',
@@ -83,3 +82,69 @@ CREATE TABLE IF NOT EXISTS order_info
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='订单';
+
+-- ---------- 源文档 ----------
+-- corpus 里政策文档的元数据。正文不进库，只记内容哈希，作为增量编译的输入指纹
+CREATE TABLE IF NOT EXISTS source_doc
+(
+    id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    doc_id        VARCHAR(128) NOT NULL COMMENT '文档标识，等于文件名',
+    title         VARCHAR(200) NOT NULL COMMENT '文档标题',
+    category      VARCHAR(32)  NULL COMMENT '类目',
+    version       VARCHAR(32)  NULL COMMENT '版本号',
+    effective_at  DATE         NULL COMMENT '生效日期',
+    status        VARCHAR(16)  NOT NULL COMMENT '状态：active 生效 / retired 已失效',
+    supersedes    VARCHAR(128) NULL COMMENT '被本版本取代的 doc_id',
+    superseded_by VARCHAR(128) NULL COMMENT '取代本版本的 doc_id',
+    content_hash  CHAR(64)     NOT NULL COMMENT '正文 sha256，输入指纹',
+    path          VARCHAR(300) NOT NULL COMMENT '相对仓库根的路径',
+    created_at    DATETIME(3)  NOT NULL COMMENT '创建时间',
+    updated_at    DATETIME(3)  NOT NULL COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_source_doc_doc_id (doc_id),
+    KEY idx_source_doc_status (status)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='源文档';
+
+-- ---------- Wiki 条目元数据 ----------
+-- 正文以 Markdown 存在 wiki/pages/ 下，库中只有元数据；
+-- 正文改动通过文件 diff 看，不写库
+CREATE TABLE IF NOT EXISTS wiki_page
+(
+    id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    page_id       VARCHAR(128) NOT NULL COMMENT '条目标识，由标题规范化得到，归并时按它匹配',
+    title         VARCHAR(200) NOT NULL COMMENT '条目标题',
+    version       VARCHAR(32)  NULL COMMENT '版本号，取来源文档中最新的版本',
+    status        VARCHAR(16)  NOT NULL COMMENT '状态：DRAFT 草稿 / ACTIVE 已生效 / RETIRED 已失效',
+    effective_at  DATE         NULL COMMENT '生效日期',
+    expires_at    DATE         NULL COMMENT '失效日期，为空表示长期有效',
+    sources       JSON         NOT NULL COMMENT '来源 doc_id 列表',
+    input_hash    CHAR(64)     NOT NULL COMMENT '输入指纹：来源文档内容哈希与版本的组合',
+    superseded_by VARCHAR(128) NULL COMMENT '取代本条目的 doc_id，仅在已失效时有值',
+    retired_at    DATETIME(3)  NULL COMMENT '失效时间',
+    created_at    DATETIME(3)  NOT NULL COMMENT '创建时间',
+    updated_at    DATETIME(3)  NOT NULL COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_wiki_page_page_id (page_id),
+    KEY idx_wiki_page_status (status)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='Wiki 条目元数据';
+
+-- ---------- 条目双链 ----------
+CREATE TABLE IF NOT EXISTS wiki_link
+(
+    id           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    from_page_id VARCHAR(128) NOT NULL COMMENT '源条目',
+    to_page_id   VARCHAR(128) NULL COMMENT '目标条目，目标还不存在时为空',
+    to_title     VARCHAR(200) NOT NULL COMMENT '目标条目标题',
+    status       VARCHAR(16)  NOT NULL COMMENT '状态：ACTIVE 已连通 / PENDING 待创建',
+    created_at   DATETIME(3)  NOT NULL COMMENT '创建时间',
+    updated_at   DATETIME(3)  NOT NULL COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_wiki_link_from_to (from_page_id, to_title),
+    KEY idx_wiki_link_to (to_page_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='条目双链';
