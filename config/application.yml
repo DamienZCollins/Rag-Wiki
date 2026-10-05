@@ -88,7 +88,7 @@ model:
     api-key: ${COMPILE_API_KEY:}
     model: ${COMPILE_MODEL:}
     temperature: ${COMPILE_TEMPERATURE:0.1}
-    max-tokens: ${COMPILE_MAX_TOKENS:8192}
+    max-tokens: ${COMPILE_MAX_TOKENS:16384}
     timeout: ${COMPILE_TIMEOUT:180s}
 
 # ---------- Agent 内核 ----------
@@ -128,6 +128,13 @@ fastpath:
   distill:
     min-hits: ${FASTPATH_DISTILL_MIN_HITS:3}
     window-days: ${FASTPATH_DISTILL_WINDOW_DAYS:7}
+
+# ---------- Wiki 编译 ----------
+wiki:
+  page-dir: ${WIKI_PAGE_DIR:wiki/pages}
+  # 矛盾检测先用向量相似度筛候选条目对，再让模型判定，把调用压到一次
+  lint-similarity-threshold: ${WIKI_LINT_SIMILARITY_THRESHOLD:0.7}
+  lint-max-pairs: ${WIKI_LINT_MAX_PAIRS:20}
 
 # ---------- 语料与产物路径 ----------
 ragwiki:
