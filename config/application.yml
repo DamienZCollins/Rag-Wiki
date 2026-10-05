@@ -123,8 +123,13 @@ rag:
 
 # ---------- 快通道 ----------
 fastpath:
+  scene: ${FASTPATH_SCENE:aftersale}
   cache-ttl: ${FASTPATH_CACHE_TTL:300s}
+  # 命中阈值：低于它的条目不判为命中
   min-confidence: ${FASTPATH_MIN_CONFIDENCE:0.8}
+  # 派生条目来自已生效的 Wiki 条目，置信度高；沉淀条目没来源，低于阈值，必须人工绑定来源才有意义
+  derived-confidence: ${FASTPATH_DERIVED_CONFIDENCE:0.9}
+  distilled-confidence: ${FASTPATH_DISTILLED_CONFIDENCE:0.6}
   distill:
     min-hits: ${FASTPATH_DISTILL_MIN_HITS:3}
     window-days: ${FASTPATH_DISTILL_WINDOW_DAYS:7}
