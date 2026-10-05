@@ -45,7 +45,13 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1 up
 | `restart` | 重启并等待 healthy |
 | `reset` | 删除数据卷（需二次确认，数据不可恢复） |
 
-### 3. 校验语料
+### 3. 初始化数据库表
+
+```bash
+docker exec -i -e MYSQL_PWD=rag_wiki rag-wiki-mysql mysql -u rag_wiki rag_wiki < sql/schema.sql
+```
+
+### 4. 校验语料
 
 ```bash
 python scripts/check-corpus.py
@@ -53,15 +59,49 @@ python scripts/check-corpus.py
 
 校验政策文档 frontmatter 完整性与工单 JSONL 全量解析。
 
+### 5. 启动应用
+
+```bash
+set -a && . ./.env && set +a
+mvn spring-boot:run -Dspring-boot.run.arguments="--spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local"
+```
+
+打包后运行同理：
+
+```bash
+set -a && . ./.env && set +a
+java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local
+```
+
+验证：
+
+```bash
+curl http://localhost:8080/actuator/health
+curl http://localhost:8080/v3/api-docs
+```
+
+Swagger UI 在 http://localhost:8080/swagger-ui/index.html
+
 ## 目录结构
 
 ```text
 ├── .gitattributes            统一换行符为 LF，避免 clone 后脚本在 Git Bash 下失效
 ├── .env.example              环境变量模板，含三组模型配置
+├── pom.xml                   Spring Boot 3.5 + Java 21
 ├── docker-compose.yml        本地中间件：MySQL / Redis / ES
 ├── config/
 │   ├── application.yml       Spring Boot 配置模板，全 ${VAR:default}，入库
 │   └── application-local.yml.example  个人密钥覆盖示例，入库
+├── sql/
+│   └── schema.sql            建表脚本，可重复执行
+├── src/main/java/com/ragwiki/
+│   ├── RagWikiApplication.java
+│   ├── common/               公共层：统一返回体、错误码、全局异常、模型客户端
+│   ├── config/               装配层：数据源、MyBatis-Plus、OpenAPI 等 Bean 装配
+│   ├── agent/                Agent 内核：协议、主循环、工具、会话与事件存储
+│   ├── wiki/                 LLM Wiki：编译、双链、增量、失效检测、lint、快通道
+│   ├── rag/                  RAG：切分、索引同步、双路召回、RRF、拒答
+│   └── eval/                 评测：用例、runner、指标、分层归因、回归门禁
 ├── corpus/                   语料（只读不可变）
 │   ├── policies/             售后政策文档，Markdown + YAML frontmatter
 │   ├── tickets/              历史工单，JSONL
@@ -71,6 +111,8 @@ python scripts/check-corpus.py
     ├── dev.ps1               中间件管理（PowerShell，需保持 UTF-8 BOM）
     └── check-corpus.py       语料校验
 ```
+
+依赖方向：`agent / wiki / rag / eval` 只依赖 `common`，`config` 只做装配。业务模块之间不互相引用内部类，需要协作走对方 `api` 包暴露的接口。
 
 `corpus/README.md` 里登记了几个**刻意埋设**的验证点（版本冲突、跨文档重叠、孤页候选），不要当作脏数据清理。
 
@@ -118,13 +160,14 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 - ES 堆内存默认 512m，语料规模上来后调整 `ES_JAVA_OPTS`
 - ES 官方镜像**不含**中文分词插件，检索用内置的 `cjk`（bigram）分析器
 - 本地为固定开发凭据，真实环境必须全部替换并启用 ES 认证
+- 数据库连接不在应用启动时校验：HikariCP 首次取连接才建池，库不可用时应用仍会启动，状态由 `/actuator/health` 暴露（`db: DOWN`，HTTP 503）
 
 ## 阶段进度
 
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
 | 0 | 仓库与环境：中间件编排、配置规范、语料 | 已完成 |
-| 1 | Spring Boot 骨架 | 未开始 |
+| 1 | Spring Boot 骨架 | 已完成 |
 | 2 | Agent 最小闭环（主循环 / SSE / 工具调用） | 未开始 |
 | 3 | RAG 基础闭环（混合召回 / RRF / 引用 / 拒答） | 未开始 |
 | 4 | LLM Wiki 编译（归并 / 双链 / 增量 / 失效 / lint） | 未开始 |
