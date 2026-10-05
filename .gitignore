@@ -1,0 +1,55 @@
+# ---------- 本地文档与代理说明 ----------
+# 设计文档与协作约定留在本地，不进入版本库
+/docs/
+/AGENTS.md
+
+# ---------- 调研材料 ----------
+# 上游 Agent 源码与调研报告，仅作研究参考，体积大且自带 .git
+/调研内容/
+
+# ---------- 环境与密钥 ----------
+# 真实密钥只存在 .env 与 config/application-local.yml，禁止入库
+.env
+.env.local
+.env.*.local
+config/application-local.yml
+config/application-local.yaml
+!config/application-local.yml.example
+
+# ---------- 构建产物 ----------
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+!**/maven-wrapper.jar
+
+# ---------- 日志 ----------
+logs/
+*.log
+nohup.out
+
+# ---------- 运行时数据 ----------
+# Docker 卷挂载目录，本地中间件数据
+/data/
+
+# ---------- IDE 与编辑器 ----------
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+.settings/
+.project
+.classpath
+*.swp
+*.swo
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 临时文件 ----------
+*.tmp
+*.bak
