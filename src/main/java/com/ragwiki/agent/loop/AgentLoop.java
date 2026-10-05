@@ -48,6 +48,7 @@ public class AgentLoop {
     private static final String ROLE_USER = "USER";
     private static final String ROLE_ASSISTANT = "ASSISTANT";
     private static final String ROLE_TOOL = "TOOL";
+    private static final String FINISH_REASON_LENGTH = "length";
 
     private final ChatClient chatClient;
     private final ToolRegistry toolRegistry;
@@ -132,6 +133,11 @@ public class AgentLoop {
                     delta -> recorder.emit(new Event.TextDelta(delta)));
 
             if (!completion.hasToolCalls()) {
+                if (FINISH_REASON_LENGTH.equals(completion.finishReason())) {
+                    // 推理模型的思考 token 也算进 max-tokens，回答可能被截断，这里只留痕不改变事件契约
+                    log.warn("模型输出达到长度上限被截断 conversationId={} maxTokens 配置见 model.chat.max-tokens",
+                            conversationId);
+                }
                 persistMessage(conversationId, ROLE_ASSISTANT, completion.content(), null, null);
                 recorder.emit(new Event.Finished(Event.FinishReason.COMPLETED));
                 return;
