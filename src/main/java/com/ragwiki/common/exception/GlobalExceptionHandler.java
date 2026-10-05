@@ -15,6 +15,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
 import java.util.stream.Collectors;
 
 /**
@@ -73,6 +74,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<Result<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         return build(ResultCode.METHOD_NOT_ALLOWED, "不支持 " + ex.getMethod() + " 方法");
+    }
+
+    /**
+     * 客户端在流式响应过程中断开，容器写回时抛 IOException。
+     * 连接已经没了，写不回任何响应体，也不该按服务端故障记日志。
+     */
+    @ExceptionHandler(IOException.class)
+    public void handleClientAbort(IOException ex) {
+        log.debug("客户端连接已断开，响应不再写出：{}", ex.getMessage());
     }
 
     /** 未预期异常：只在服务端记日志，响应体不暴露堆栈信息 */
