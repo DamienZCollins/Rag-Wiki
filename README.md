@@ -85,6 +85,32 @@ curl http://localhost:8080/v3/api-docs
 
 Swagger UI 在 http://localhost:8080/swagger-ui/index.html
 
+## 快通道接口
+
+```bash
+# 场景初始化：售后页直查，毫秒级，走 Redis 缓存
+curl 'http://localhost:8080/api/fastpath/entries?scene=aftersale'
+
+# 作答：传 entryId 表示用户点了候选选项，传 question 表示自由输入
+curl -X POST http://localhost:8080/api/fastpath/answer -H 'Content-Type: application/json'   -d '{"question":"退款发票冲红"}'
+
+# 从 Wiki 条目派生候选（纯规则，零模型调用）
+curl -X POST http://localhost:8080/api/fastpath/entries/derive
+
+# 上线校验并发布：来源失效的条目同步下线，没来源的候选上不了线
+curl -X POST http://localhost:8080/api/fastpath/entries/publish
+
+# 流量沉淀：把慢通道被反复问到的问题捞进候选池
+curl -X POST http://localhost:8080/api/fastpath/distill
+```
+
+**快慢分流在 `POST /api/chat` 里**：Agent 先试快通道，命中就直接答（事件流里没有 `THINKING`、
+没有 `TOOL_CALL`，也就没有任何模型调用），未命中才走内层循环检索生成。两条通道互斥，不会既直答又检索。
+
+命中判定两级：规范化后完全相同的精确匹配，以及**条目关键词全部出现在问题里**的关键词匹配。
+关键词还要求有区分度（至少两个，或有一个长度 ≥ 3 的关键词），否则一个「运费」就会把
+「退货运费谁承担」匹配到「运费计价重量」上去。
+
 ## Wiki 编译接口
 
 ```bash
@@ -278,7 +304,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 | 2 | Agent 最小闭环（主循环 / SSE / 工具调用） | 已完成 |
 | 3 | RAG 基础闭环（混合召回 / RRF / 引用 / 拒答） | 已完成 |
 | 4 | LLM Wiki 编译（归并 / 双链 / 增量 / 失效 / lint） | 已完成 |
-| 5 | 快通道与快慢分流 | 未开始 |
+| 5 | 快通道与快慢分流 | 已完成 |
 | 6 | 评测体系（分层归因 / 对比实验 / 回归门禁） | 未开始 |
 | 7 | 收尾与面试表达 | 未开始 |
 | 8 | 演示界面与设计沉淀 | 未开始 |
