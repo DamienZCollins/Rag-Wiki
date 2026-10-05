@@ -26,8 +26,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * 全局异常处理的端到端校验。
  * 用一个只在测试里存在的探针 controller 触发各类异常，避免为了验证往主代码里塞示例接口。
+ * 用 controllers 收窄切片，否则 web 切片还会去建 ChatController，连带把整条 agent 依赖链拖进来。
  */
-@WebMvcTest
+@WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
 @Import({GlobalExceptionHandlerTest.ProbeController.class, GlobalExceptionHandler.class})
 class GlobalExceptionHandlerTest {
 

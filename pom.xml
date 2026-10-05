@@ -87,6 +87,17 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- 让测试加载仓库根的 config/application.yml，与应用启动方式一致，
+                         避免在测试资源里重复一份数据源配置 -->
+                    <systemPropertyVariables>
+                        <spring.config.additional-location>optional:file:./config/</spring.config.additional-location>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
