@@ -1,0 +1,119 @@
+# RAG-Wiki 统一配置模板
+# 本文件入库，只写 ${VAR:default}，默认值仅是与 docker-compose.yml 对齐的本地开发值
+# 真实密钥走环境变量（.env 由启动脚本加载）或 config/application-local.yml（不入库）
+
+spring:
+  application:
+    name: rag-wiki
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:rag_wiki}?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:rag_wiki}
+    password: ${MYSQL_PASSWORD:rag_wiki}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: rag-wiki-pool
+      maximum-pool-size: ${MYSQL_POOL_MAX:20}
+      minimum-idle: ${MYSQL_POOL_MIN:5}
+      connection-timeout: 30000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis123456}
+      database: 0
+      timeout: 3s
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
+    connection-timeout: 5s
+    socket-timeout: 30s
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.ragwiki.*.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: assign_id
+      table-underline: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# ---------- 模型接入：三组独立配置，可分别换模型、分别限额、分别排查 ----------
+# 密钥默认为空，不填则对应能力不可用；中间件与语料相关验证不受影响
+model:
+  chat:
+    base-url: ${CHAT_BASE_URL:}
+    api-key: ${CHAT_API_KEY:}
+    model: ${CHAT_MODEL:}
+    temperature: ${CHAT_TEMPERATURE:0.2}
+    max-tokens: ${CHAT_MAX_TOKENS:2048}
+    timeout: ${CHAT_TIMEOUT:60s}
+  embedding:
+    # dimensions 必须与 ES 索引 dense_vector 的 dims 一致，改动即需重建索引
+    base-url: ${EMBEDDING_BASE_URL:}
+    api-key: ${EMBEDDING_API_KEY:}
+    model: ${EMBEDDING_MODEL:}
+    dimensions: ${EMBEDDING_DIMENSIONS:1024}
+    batch-size: ${EMBEDDING_BATCH_SIZE:32}
+    timeout: ${EMBEDDING_TIMEOUT:60s}
+  compile:
+    base-url: ${COMPILE_BASE_URL:}
+    api-key: ${COMPILE_API_KEY:}
+    model: ${COMPILE_MODEL:}
+    temperature: ${COMPILE_TEMPERATURE:0.1}
+    max-tokens: ${COMPILE_MAX_TOKENS:8192}
+    timeout: ${COMPILE_TIMEOUT:180s}
+
+# ---------- 检索 ----------
+rag:
+  index:
+    alias: ${ES_INDEX_ALIAS:knowledge_chunks}
+    source: ${RAG_INDEX_SOURCE:doc}
+    # ES 官方镜像不含中文分词插件，用内置 cjk（bigram）分析器
+    analyzer: ${RAG_ANALYZER:cjk}
+  rrf:
+    k: ${RAG_RRF_K:60}
+  candidate-window: ${RAG_CANDIDATE_WINDOW:50}
+  top-k: ${RAG_TOP_K:8}
+  # 拒答按单路原始分判定：两路最高分都低于各自阈值才拒答
+  refuse:
+    bm25-threshold: ${RAG_REFUSE_BM25_THRESHOLD:0.5}
+    vector-threshold: ${RAG_REFUSE_VECTOR_THRESHOLD:0.35}
+
+# ---------- 快通道 ----------
+fastpath:
+  cache-ttl: ${FASTPATH_CACHE_TTL:300s}
+  min-confidence: ${FASTPATH_MIN_CONFIDENCE:0.8}
+  distill:
+    min-hits: ${FASTPATH_DISTILL_MIN_HITS:3}
+    window-days: ${FASTPATH_DISTILL_WINDOW_DAYS:7}
+
+# ---------- 语料与产物路径 ----------
+ragwiki:
+  corpus:
+    policy-dir: ${CORPUS_POLICY_DIR:corpus/policies}
+    ticket-dir: ${CORPUS_TICKET_DIR:corpus/tickets}
+  wiki:
+    page-dir: ${WIKI_PAGE_DIR:wiki/pages}

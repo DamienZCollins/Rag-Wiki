@@ -1,0 +1,24 @@
+# 个人本地覆盖示例
+# 用法：复制为 config/application-local.yml（不入库），只写要覆盖的键
+# 生效条件：启动时激活 local profile
+#   --spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local
+# 取值优先级：环境变量 > application-local.yml > application.yml 默认值
+
+model:
+  chat:
+    base-url: https://api.example.com/v1
+    api-key: sk-替换成你自己的密钥
+    model: your-chat-model
+  embedding:
+    base-url: https://api.example.com/v1
+    api-key: sk-替换成你自己的密钥
+    model: your-embedding-model
+    dimensions: 1024
+  compile:
+    base-url: https://api.example.com/v1
+    api-key: sk-替换成你自己的密钥
+    model: your-compile-model
+
+logging:
+  level:
+    com.ragwiki: debug
