@@ -1,0 +1,52 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "1s"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "chunk_id": {
+        "type": "keyword"
+      },
+      "doc_id": {
+        "type": "keyword"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "cjk"
+      },
+      "heading_path": {
+        "type": "text",
+        "analyzer": "cjk"
+      },
+      "content": {
+        "type": "text",
+        "analyzer": "cjk"
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "version": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "effective_at": {
+        "type": "date",
+        "format": "yyyy-MM-dd"
+      },
+      "chunk_index": {
+        "type": "integer"
+      },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": __DIMS__,
+        "index": true,
+        "similarity": "cosine"
+      }
+    }
+  }
+}

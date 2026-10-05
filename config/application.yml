@@ -102,18 +102,24 @@ agent:
 # ---------- 检索 ----------
 rag:
   index:
+    # 所有查询走别名，物理索引靠改别名指向切换，不改代码
     alias: ${ES_INDEX_ALIAS:knowledge_chunks}
+    # doc 读 corpus/policies，wiki 读 wiki/pages；物理索引名 = knowledge_{source}_{version}
     source: ${RAG_INDEX_SOURCE:doc}
-    # ES 官方镜像不含中文分词插件，用内置 cjk（bigram）分析器
+    # mapping 变更时递增，旧索引保留作对照
+    version: ${RAG_INDEX_VERSION:v1}
     analyzer: ${RAG_ANALYZER:cjk}
+  chunk:
+    max-chars: ${RAG_CHUNK_MAX_CHARS:600}
+    overlap-chars: ${RAG_CHUNK_OVERLAP_CHARS:80}
   rrf:
     k: ${RAG_RRF_K:60}
   candidate-window: ${RAG_CANDIDATE_WINDOW:50}
   top-k: ${RAG_TOP_K:8}
   # 拒答按单路原始分判定：两路最高分都低于各自阈值才拒答
   refuse:
-    bm25-threshold: ${RAG_REFUSE_BM25_THRESHOLD:0.5}
-    vector-threshold: ${RAG_REFUSE_VECTOR_THRESHOLD:0.35}
+    bm25-threshold: ${RAG_REFUSE_BM25_THRESHOLD:8.0}
+    vector-threshold: ${RAG_REFUSE_VECTOR_THRESHOLD:0.72}
 
 # ---------- 快通道 ----------
 fastpath:
