@@ -148,3 +148,72 @@ CREATE TABLE IF NOT EXISTS wiki_link
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='条目双链';
+
+-- ---------- 快通道条目 ----------
+CREATE TABLE IF NOT EXISTS fast_entry
+(
+    id             BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
+    entry_id       VARCHAR(64)   NOT NULL COMMENT '条目标识，由问题文本规范化后哈希得到，重复派生幂等',
+    scene          VARCHAR(32)   NOT NULL COMMENT '场景，如 aftersale',
+    question       VARCHAR(300)  NOT NULL COMMENT '规范化后的标准问题',
+    answer         TEXT          NOT NULL COMMENT '确定性答案',
+    keywords       JSON          NOT NULL COMMENT '命中判定用的关键词，全部命中才算匹配',
+    conditions     TEXT          NULL COMMENT '适用条件',
+    confidence     DECIMAL(4, 3) NOT NULL COMMENT '置信度，低于阈值不判为命中',
+    status         VARCHAR(16)   NOT NULL COMMENT '状态：CANDIDATE 候选 / ACTIVE 生效 / OFFLINE 下线',
+    origin         VARCHAR(16)   NOT NULL COMMENT '来源方式：DERIVED 由 Wiki 条目派生 / DISTILLED 由慢通道流量沉淀',
+    source_page_id VARCHAR(128)  NULL COMMENT '来源 Wiki 条目。派生条目必填，沉淀条目为空且只能停在候选态',
+    effective_at   DATE          NULL COMMENT '生效日期',
+    expires_at     DATE          NULL COMMENT '失效日期，为空表示长期有效',
+    hit_count      INT           NOT NULL DEFAULT 0 COMMENT '命中次数，供流量沉淀排序',
+    created_at     DATETIME(3)   NOT NULL COMMENT '创建时间',
+    updated_at     DATETIME(3)   NOT NULL COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_fast_entry_entry_id (entry_id),
+    KEY idx_fast_entry_scene_status (scene, status)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='快通道条目';
+
+-- ---------- 提问日志 ----------
+-- 记录每次提问走哪条通道、是否命中、耗时与 token，阶段 6 的双通道对比实验读这张表
+CREATE TABLE IF NOT EXISTS query_log
+(
+    id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    ts              DATETIME(3)  NOT NULL COMMENT '提问时间',
+    question        VARCHAR(500) NOT NULL COMMENT '原始问题',
+    question_hash   CHAR(64)     NOT NULL COMMENT '问题文本的 sha256，用于按问题聚合',
+    channel         VARCHAR(16)  NOT NULL COMMENT '通道：FASTPATH 快通道 / RAG 慢通道',
+    hit             TINYINT(1)   NOT NULL COMMENT '快通道是否命中；慢通道恒为 0',
+    entry_id        VARCHAR(64)  NULL COMMENT '命中的快通道条目',
+    latency_ms      INT          NOT NULL COMMENT '端到端耗时，可用于 P99',
+    token_in        INT          NULL COMMENT '慢通道消耗的输入 token，快通道为空',
+    token_out       INT          NULL COMMENT '慢通道消耗的输出 token，快通道为空',
+    conversation_id BIGINT       NULL COMMENT '关联会话',
+    created_at      DATETIME(3)  NOT NULL COMMENT '写入时间',
+    PRIMARY KEY (id),
+    KEY idx_query_log_ts (ts),
+    KEY idx_query_log_question_hash (question_hash),
+    KEY idx_query_log_channel (channel, hit)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='提问日志';
+
+-- ---------- 售后工单 ----------
+CREATE TABLE IF NOT EXISTS aftersale_ticket
+(
+    id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    ticket_id       VARCHAR(64)  NOT NULL COMMENT '工单号',
+    conversation_id BIGINT       NULL COMMENT '来源会话',
+    session_id      VARCHAR(64)  NULL COMMENT '来源会话标识',
+    order_no        VARCHAR(64)  NULL COMMENT '关联订单号',
+    reason          VARCHAR(500) NOT NULL COMMENT '转人工原因',
+    status          VARCHAR(16)  NOT NULL COMMENT '状态：OPEN 待处理 / CLOSED 已关闭',
+    created_at      DATETIME(3)  NOT NULL COMMENT '创建时间',
+    updated_at      DATETIME(3)  NOT NULL COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_aftersale_ticket_ticket_id (ticket_id),
+    KEY idx_aftersale_ticket_conversation (conversation_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='售后工单';
