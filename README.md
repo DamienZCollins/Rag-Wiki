@@ -49,7 +49,10 @@ powershell -ExecutionPolicy Bypass -File scripts/dev.ps1 up
 
 ```bash
 docker exec -i -e MYSQL_PWD=rag_wiki rag-wiki-mysql mysql -u rag_wiki rag_wiki < sql/schema.sql
+docker exec -i -e MYSQL_PWD=rag_wiki rag-wiki-mysql mysql -u rag_wiki rag_wiki < sql/seed.sql
 ```
+
+两个脚本开头都有 `SET NAMES utf8mb4;`，不用额外加客户端编码参数。
 
 ### 4. 校验语料
 
@@ -82,6 +85,43 @@ curl http://localhost:8080/v3/api-docs
 
 Swagger UI 在 http://localhost:8080/swagger-ui/index.html
 
+## 对话接口
+
+`POST /api/chat`，以 SSE 推送事件。
+
+```bash
+curl -N -X POST http://localhost:8080/api/chat \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  -d '{"sessionId":"demo-1","message":"帮我查一下订单 SO20250901001 现在到哪了"}'
+```
+
+事件名为 `STARTED` / `THINKING` / `TEXT_DELTA` / `TOOL_CALL` / `TOOL_RESULT` / `FINISHED` / `ERROR`，
+载荷是事件对象的 JSON，定义见 `com.ragwiki.agent.protocol.Event`。
+`FINISHED` 是唯一终止事件，`reason` 取 `COMPLETED` / `MAX_STEPS` / `CANCELLED` / `FAILED`。
+
+⚠️ 流一旦开始推送，HTTP 状态就已经是 200，模型报错之类的问题只能在流里用 `ERROR` 事件传达。
+
+### 没有模型密钥时怎么验
+
+`model.chat` 三件套留空时应用照常启动，一提问会返回 `ERROR code=1001`，提示缺哪几个配置。
+要完整跑通链路，可以起一个 OpenAI 兼容的桩上游替代**模型输出**：
+
+```bash
+javac -d target/stub src/test/java/com/ragwiki/support/StubModelServer.java
+java -cp target/stub com.ragwiki.support.StubModelServer 8090 20
+```
+
+然后让应用指向它：
+
+```bash
+set -a && . ./.env && set +a
+CHAT_BASE_URL=http://127.0.0.1:8090/v1 CHAT_API_KEY=stub CHAT_MODEL=stub-model \
+java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local
+```
+
+桩只替换模型输出，流式协议解析、SSE 推送、工具调用、落库、恢复都由本项目代码真实执行。
+
 ## 目录结构
 
 ```text
@@ -93,7 +133,8 @@ Swagger UI 在 http://localhost:8080/swagger-ui/index.html
 │   ├── application.yml       Spring Boot 配置模板，全 ${VAR:default}，入库
 │   └── application-local.yml.example  个人密钥覆盖示例，入库
 ├── sql/
-│   └── schema.sql            建表脚本，可重复执行
+│   ├── schema.sql            建表脚本，可重复执行
+│   └── seed.sql              演示订单数据（query_order 工具的数据源）
 ├── src/main/java/com/ragwiki/
 │   ├── RagWikiApplication.java
 │   ├── common/               公共层：统一返回体、错误码、全局异常、模型客户端
@@ -161,6 +202,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 - ES 官方镜像**不含**中文分词插件，检索用内置的 `cjk`（bigram）分析器
 - 本地为固定开发凭据，真实环境必须全部替换并启用 ES 认证
 - 数据库连接不在应用启动时校验：HikariCP 首次取连接才建池，库不可用时应用仍会启动，状态由 `/actuator/health` 暴露（`db: DOWN`，HTTP 503）
+- **跑 `mvn test` 需要中间件已启动**：集成测试跑的是真实 MySQL 与真实 HTTP，不是内存替身。测试通过 surefire 的 `spring.config.additional-location` 直接加载仓库根的 `config/application.yml`，不另外维护一份测试配置
 
 ## 阶段进度
 
@@ -168,7 +210,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 | --- | --- | --- |
 | 0 | 仓库与环境：中间件编排、配置规范、语料 | 已完成 |
 | 1 | Spring Boot 骨架 | 已完成 |
-| 2 | Agent 最小闭环（主循环 / SSE / 工具调用） | 未开始 |
+| 2 | Agent 最小闭环（主循环 / SSE / 工具调用） | 已完成 |
 | 3 | RAG 基础闭环（混合召回 / RRF / 引用 / 拒答） | 未开始 |
 | 4 | LLM Wiki 编译（归并 / 双链 / 增量 / 失效 / lint） | 未开始 |
 | 5 | 快通道与快慢分流 | 未开始 |
