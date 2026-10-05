@@ -105,7 +105,7 @@ rag:
     # 所有查询走别名，物理索引靠改别名指向切换，不改代码
     alias: ${ES_INDEX_ALIAS:knowledge_chunks}
     # doc 读 corpus/policies，wiki 读 wiki/pages；物理索引名 = knowledge_{source}_{version}
-    source: ${RAG_INDEX_SOURCE:doc}
+    source: ${RAG_INDEX_SOURCE:wiki}
     # mapping 变更时递增，旧索引保留作对照
     version: ${RAG_INDEX_VERSION:v1}
     analyzer: ${RAG_ANALYZER:cjk}
