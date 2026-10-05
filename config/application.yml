@@ -9,7 +9,11 @@ spring:
     virtual:
       enabled: true
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:rag_wiki}?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    # characterEncoding 要写 Java 字符集名 UTF-8，不是 MySQL 字符集名 utf8mb4；
+    # Connector/J 8 起在 MySQL 8 上会自动协商到服务端的 utf8mb4
+    # connectionTimeZone 用 IANA 时区名（不写 +08:00，避免 URL 里 + 号转义问题），
+    # 未加 forceConnectionTimeZoneToSession 时只影响驱动侧换算，不下发 SET time_zone
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:rag_wiki}?characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:rag_wiki}
     password: ${MYSQL_PASSWORD:rag_wiki}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -42,7 +46,8 @@ mybatis-plus:
   global-config:
     banner: false
     db-config:
-      id-type: assign_id
+      # 建表用 BIGINT AUTO_INCREMENT，主键交给数据库自增
+      id-type: auto
       table-underline: true
 
 springdoc:
