@@ -1,5 +1,7 @@
 package com.ragwiki.rag.search;
 
+import com.ragwiki.common.exception.BusinessException;
+import com.ragwiki.common.result.ResultCode;
 import com.ragwiki.rag.RagProperties;
 import com.ragwiki.rag.dto.ChunkHit;
 import org.springframework.stereotype.Component;
@@ -22,6 +24,9 @@ public class RefusalJudge {
     }
 
     public boolean shouldRefuse(List<ChunkHit> bm25Hits, List<ChunkHit> vectorHits) {
+        if (bm25Hits.isEmpty() && vectorHits.isEmpty()) {
+            throw new BusinessException(ResultCode.SYSTEM_ERROR, "检索无结果，索引可能未就绪或查询异常");
+        }
         return topScore(bm25Hits) < properties.refuse().bm25Threshold()
                 && topScore(vectorHits) < properties.refuse().vectorThreshold();
     }

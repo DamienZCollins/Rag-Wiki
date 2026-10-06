@@ -8,6 +8,7 @@ import com.ragwiki.wiki.dto.CompileReport;
 import com.ragwiki.wiki.dto.CompileRequest;
 import com.ragwiki.wiki.dto.LintReport;
 import com.ragwiki.wiki.dto.WikiPageSummary;
+import com.ragwiki.wiki.fastpath.FastPathService;
 import com.ragwiki.wiki.lint.WikiLinter;
 import com.ragwiki.wiki.schema.PageContent;
 import com.ragwiki.wiki.schema.WikiLink;
@@ -36,28 +37,36 @@ public class WikiController {
     private final WikiLinter linter;
     private final WikiStore store;
     private final GitPageStore pageStore;
+    private final FastPathService fastPathService;
 
     public WikiController(WikiCompiler compiler,
                           WikiLinter linter,
                           WikiStore store,
-                          GitPageStore pageStore) {
+                          GitPageStore pageStore,
+                          FastPathService fastPathService) {
         this.compiler = compiler;
         this.linter = linter;
         this.store = store;
         this.pageStore = pageStore;
+        this.fastPathService = fastPathService;
     }
 
     @Operation(summary = "编译条目", description = """
             离线批处理，不在在线问答链路上。
             不给 sourceDocId 就编译全部生效文档；incremental 控制只重算输入变化的文档。
-            报告里给出新建 / 更新 / 失效 / 跳过的条目与文档，便于核对数字与实际改动。""")
+            报告里给出新建 / 更新 / 失效 / 跳过的条目与文档，便于核对数字与实际改动。
+            编译完成后清理快通道缓存，避免返回过期答案。""")
     @PostMapping("/compile")
     public Result<CompileReport> compile(@RequestBody(required = false) CompileRequest request) {
         CompileRequest effective = request == null ? new CompileRequest(null, true) : request;
+        CompileReport report;
         if (StringUtils.hasText(effective.sourceDocId())) {
-            return Result.ok(compiler.compileOne(effective.sourceDocId().strip()));
+            report = compiler.compileOne(effective.sourceDocId().strip());
+        } else {
+            report = compiler.compileAll(effective.incrementalOrDefault());
         }
-        return Result.ok(compiler.compileAll(effective.incrementalOrDefault()));
+        fastPathService.evictCache();
+        return Result.ok(report);
     }
 
     @Operation(summary = "条目体检", description = "矛盾、过期、孤页、待创建，按严重程度分级，可定位到具体条目")
