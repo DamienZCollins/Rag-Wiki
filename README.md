@@ -161,6 +161,7 @@ curl -X POST http://localhost:8080/api/rag/search \
 
 返回里同时给出两路各自的原始分与名次，以及 RRF 融合分。
 `refused=true` 表示两路最高原始分都低于各自阈值，此时 `chunks` 为空。
+两路都召回为空时接口按 `RAG_INDEX_EMPTY`（4001）报错——它表示索引里没有可召回文档，多半是还没重建。
 
 拒答判定用的是**单路原始分**，不是融合分——融合分只反映名次，没有绝对量纲。
 两个阈值在 `config/application.yml` 的 `rag.refuse.*`，是拿真 embedding 在语料上标定出来的

@@ -1,5 +1,7 @@
 package com.ragwiki.rag.service;
 
+import com.ragwiki.common.exception.BusinessException;
+import com.ragwiki.common.result.ResultCode;
 import com.ragwiki.rag.RagProperties;
 import com.ragwiki.rag.api.KnowledgeSearchApi;
 import com.ragwiki.rag.dto.ChunkHit;
@@ -18,6 +20,9 @@ import java.util.List;
 /**
  * 检索引擎：两路召回 → 拒答判定 → RRF 融合 → 取 topK。
  * 拒答判定放在融合之前，因为阈值是单路原始分的事，融合后就没有原始分了。
+ *
+ * <p>两路都召回为空表示索引里没有可召回文档，抛 {@link ResultCode#RAG_INDEX_EMPTY}，
+ * 与「两路分数都低」的超范围拒答区分开。
  */
 @Service
 public class KnowledgeSearchService implements KnowledgeSearchApi {
@@ -59,6 +64,11 @@ public class KnowledgeSearchService implements KnowledgeSearchApi {
         int window = properties.candidateWindow();
         List<ChunkHit> bm25Hits = bm25Searcher.search(question, window, indexOverride);
         List<ChunkHit> vectorHits = vectorSearcher.search(question, window, indexOverride);
+
+        // 两路都空说明索引里没有可召回文档，不当超范围拒答，按索引问题暴露出来
+        if (bm25Hits.isEmpty() && vectorHits.isEmpty()) {
+            throw new BusinessException(ResultCode.RAG_INDEX_EMPTY);
+        }
 
         double topBm25 = RefusalJudge.topScore(bm25Hits);
         double topVector = RefusalJudge.topScore(vectorHits);

@@ -11,6 +11,7 @@ public interface KnowledgeSearchApi {
 
     /**
      * 检索结果。hit 为 false 表示两路分数都低于拒答阈值，调用方据此决定怎么回复。
+     * 两路都召回为空时按索引问题抛错，不会返回 hit=false。
      * citations 的顺序就是给模型和前端看的引用编号顺序。
      */
     record KnowledgeSearchOutcome(boolean hit, List<Citation> citations) {

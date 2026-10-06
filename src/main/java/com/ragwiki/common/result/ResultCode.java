@@ -20,7 +20,9 @@ public enum ResultCode {
     MODEL_RATE_LIMITED(1003, 429, "模型限流"),
     MODEL_TIMEOUT(1004, 504, "模型调用超时"),
     MODEL_UNAVAILABLE(1005, 502, "模型服务不可用"),
-    MODEL_RESPONSE_INVALID(1006, 502, "模型响应无法解析");
+    MODEL_RESPONSE_INVALID(1006, 502, "模型响应无法解析"),
+
+    RAG_INDEX_EMPTY(4001, 503, "知识库检索无结果，索引可能未就绪");
 
     private final int code;
     private final int httpStatus;
