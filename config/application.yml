@@ -26,7 +26,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:redis123456}
+      password: ${REDIS_PASSWORD:}
       database: 0
       timeout: 3s
   elasticsearch:
@@ -95,7 +95,7 @@ model:
 agent:
   # 内层循环单轮的模型调用步数上限，防止工具调用不收敛
   max-steps: ${AGENT_MAX_STEPS:6}
-  sse-timeout: ${AGENT_SSE_TIMEOUT:180s}
+  sse-timeout: ${AGENT_SSE_TIMEOUT:60s}
   # 恢复会话上下文时最多带多少条历史消息
   max-history-messages: ${AGENT_HISTORY_MAX_MESSAGES:40}
 

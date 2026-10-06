@@ -217,6 +217,7 @@ public class AgentLoop {
         }
 
         log.warn("达到步数上限 {}，工具调用仍未收敛", properties.maxSteps());
+        recorder.emit(new Event.Error("MAX_STEPS", "问题较复杂，建议转人工处理"));
         recorder.emit(new Event.Finished(Event.FinishReason.MAX_STEPS));
     }
 
