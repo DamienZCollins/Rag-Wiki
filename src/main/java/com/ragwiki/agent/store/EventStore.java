@@ -27,11 +27,7 @@ public class EventStore {
 
     /** 取下一个可用的事件序号。一轮开始时取一次，之后在内存里自增，避免每条事件都查库 */
     public int nextSeq(long conversationId) {
-        AgentEvent last = agentEventMapper.selectOne(Wrappers.<AgentEvent>lambdaQuery()
-                .eq(AgentEvent::getConversationId, conversationId)
-                .orderByDesc(AgentEvent::getSeq)
-                .last("LIMIT 1"));
-        return last == null ? 1 : last.getSeq() + 1;
+        return agentEventMapper.nextSeq(conversationId);
     }
 
     public void append(long conversationId, int seq, Event event) {
@@ -55,7 +51,6 @@ public class EventStore {
             try {
                 events.add(objectMapper.readValue(record.getPayload(), Event.class));
             } catch (Exception e) {
-                // 单条载荷损坏不应该让整个会话恢复不了，跳过并继续
                 throw new IllegalStateException(
                         "事件载荷无法反序列化 conversationId=" + conversationId + " seq=" + record.getSeq(), e);
             }

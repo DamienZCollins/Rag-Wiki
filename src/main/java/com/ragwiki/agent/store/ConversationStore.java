@@ -66,7 +66,7 @@ public class ConversationStore {
                               String toolCallsJson, String toolCallId) {
         Message message = new Message();
         message.setConversationId(conversationId);
-        message.setSeq(nextSeq(conversationId));
+        message.setSeq(messageMapper.nextSeq(conversationId));
         message.setRole(role);
         message.setContent(content);
         message.setToolCalls(toolCallsJson);
@@ -84,14 +84,6 @@ public class ConversationStore {
         return messageMapper.selectList(Wrappers.<Message>lambdaQuery()
                 .eq(Message::getConversationId, conversationId)
                 .orderByAsc(Message::getSeq));
-    }
-
-    private int nextSeq(long conversationId) {
-        Message last = messageMapper.selectOne(Wrappers.<Message>lambdaQuery()
-                .eq(Message::getConversationId, conversationId)
-                .orderByDesc(Message::getSeq)
-                .last("LIMIT 1"));
-        return last == null ? 1 : last.getSeq() + 1;
     }
 
     private static String abbreviate(String text) {

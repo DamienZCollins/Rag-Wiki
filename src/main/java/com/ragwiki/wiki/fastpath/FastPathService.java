@@ -98,7 +98,11 @@ public class FastPathService implements FastPathApi {
         }
 
         FastEntry entry = result.entry();
-        store.incrementHitCount(entry.getId());
+        try {
+            store.incrementHitCount(entry.getId());
+        } catch (Exception e) {
+            log.warn("命中计数更新失败，不影响本次回答 entryId={}", entry.getEntryId(), e);
+        }
         recorder.record(question, QueryLog.CHANNEL_FASTPATH, true, entry.getEntryId(),
                 latencyMillis, null, null, null);
 
