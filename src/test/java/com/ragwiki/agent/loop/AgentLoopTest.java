@@ -151,6 +151,11 @@ class AgentLoopTest {
         assertThat(finished.reason()).isEqualTo(Event.FinishReason.MAX_STEPS);
         long modelCalls = types().stream().filter(type -> type == Event.EventType.THINKING).count();
         assertThat(modelCalls).isEqualTo(MAX_STEPS);
+
+        // 触顶时先发一条 ERROR 提示再收尾，客户端据此把用户引到人工
+        Event.Error error = (Event.Error) events.get(events.size() - 2);
+        assertThat(error.code()).isEqualTo("MAX_STEPS");
+        assertThat(error.message()).isNotBlank();
     }
 
     @Test
