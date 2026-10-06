@@ -31,6 +31,9 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -46,6 +49,7 @@ class AgentLoopTest {
     private final EventStore eventStore = mock(EventStore.class);
     private final ConversationHistory conversationHistory = mock(ConversationHistory.class);
     private final FastPathApi fastPathApi = mock(FastPathApi.class);
+    private final SessionTurnLock turnLock = new SessionTurnLock();
 
     private AgentLoop agentLoop;
     private List<Event> events;
@@ -54,7 +58,7 @@ class AgentLoopTest {
     void setUp() {
         AgentProperties properties = new AgentProperties(MAX_STEPS, Duration.ofSeconds(60), 40);
         agentLoop = new AgentLoop(chatClient, toolRegistry, conversationStore, eventStore,
-                conversationHistory, properties, new ObjectMapper(), fastPathApi);
+                conversationHistory, properties, new ObjectMapper(), fastPathApi, turnLock);
         // 这些用例针对的是慢通道的内层循环，快通道一律判未命中
         when(fastPathApi.answer(anyString())).thenReturn(FastPathApi.Answer.miss());
 
@@ -191,5 +195,38 @@ class AgentLoopTest {
         assertThat(types()).isEmpty();
         assertThat(received.stream().map(Event::type))
                 .containsExactly(Event.EventType.STARTED, Event.EventType.THINKING);
+    }
+
+    @Test
+    void rejectsSecondTurnOnBusySession() {
+        when(chatClient.stream(any(), any(), any())).thenReturn(new ChatCompletion("答", List.of(), "stop"));
+        turnLock.tryAcquire("s1");
+
+        run("你好");
+
+        assertThat(types()).containsExactly(Event.EventType.ERROR, Event.EventType.FINISHED);
+        assertThat(((Event.Error) events.get(0)).code())
+                .isEqualTo(String.valueOf(ResultCode.AGENT_SESSION_BUSY.code()));
+        assertThat(((Event.Finished) events.get(1)).reason()).isEqualTo(Event.FinishReason.FAILED);
+        // 被拒的一轮不建会话也不落库，免得和正在跑的那轮抢序号
+        verify(conversationStore, never()).getOrCreate(anyString(), anyString());
+        verifyNoInteractions(chatClient);
+        // 互斥按会话隔离，别的会话不受影响
+        assertThat(turnLock.tryAcquire("s2")).isTrue();
+    }
+
+    @Test
+    void releasesSessionAfterTurnFinishes() {
+        when(chatClient.stream(any(), any(), any())).thenReturn(new ChatCompletion("答", List.of(), "stop"));
+
+        run("你好");
+        events.clear();
+        run("再问一次");
+
+        // 上一轮没释放会话的话，这一轮会以 AGENT_SESSION_BUSY 收场
+        assertThat(types()).containsExactly(
+                Event.EventType.STARTED,
+                Event.EventType.THINKING,
+                Event.EventType.FINISHED);
     }
 }

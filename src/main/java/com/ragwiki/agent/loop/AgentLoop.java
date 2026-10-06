@@ -64,6 +64,7 @@ public class AgentLoop {
     private final AgentProperties properties;
     private final ObjectMapper objectMapper;
     private final FastPathApi fastPathApi;
+    private final SessionTurnLock turnLock;
 
     public AgentLoop(ChatClient chatClient,
                      ToolRegistry toolRegistry,
@@ -72,7 +73,8 @@ public class AgentLoop {
                      ConversationHistory conversationHistory,
                      AgentProperties properties,
                      ObjectMapper objectMapper,
-                     FastPathApi fastPathApi) {
+                     FastPathApi fastPathApi,
+                     SessionTurnLock turnLock) {
         this.chatClient = chatClient;
         this.toolRegistry = toolRegistry;
         this.conversationStore = conversationStore;
@@ -81,6 +83,7 @@ public class AgentLoop {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.fastPathApi = fastPathApi;
+        this.turnLock = turnLock;
     }
 
     public void run(Op op, EventSink sink) {
@@ -89,7 +92,25 @@ public class AgentLoop {
         }
     }
 
+    /**
+     * 一轮对话的入口。同一会话已有回合在跑时直接拒绝：会话内序号按当前最大值 +1 分配，
+     * 两轮并发会撞唯一键。拒绝的一轮不落库，免得和正在跑的那轮抢序号。
+     */
     private void handleUserInput(Op.UserInput input, EventSink sink) {
+        if (!turnLock.tryAcquire(input.sessionId())) {
+            sink.emit(new Event.Error(String.valueOf(ResultCode.AGENT_SESSION_BUSY.code()),
+                    ResultCode.AGENT_SESSION_BUSY.message()));
+            sink.emit(new Event.Finished(Event.FinishReason.FAILED));
+            return;
+        }
+        try {
+            advance(input, sink);
+        } finally {
+            turnLock.release(input.sessionId());
+        }
+    }
+
+    private void advance(Op.UserInput input, EventSink sink) {
         Long conversationId = openConversation(input);
 
         // 历史要在发出 Started 之前恢复：Started 属于本轮，不该出现在本轮的历史里

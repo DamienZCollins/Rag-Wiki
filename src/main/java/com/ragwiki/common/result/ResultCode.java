@@ -22,6 +22,8 @@ public enum ResultCode {
     MODEL_UNAVAILABLE(1005, 502, "模型服务不可用"),
     MODEL_RESPONSE_INVALID(1006, 502, "模型响应无法解析"),
 
+    AGENT_SESSION_BUSY(2002, 409, "该会话有回合正在进行，请等这一轮结束"),
+
     RAG_INDEX_EMPTY(4001, 503, "知识库检索无结果，索引可能未就绪");
 
     private final int code;
