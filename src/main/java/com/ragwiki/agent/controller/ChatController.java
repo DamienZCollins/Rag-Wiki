@@ -43,7 +43,8 @@ public class ChatController {
             以 SSE 推送事件，事件名为 STARTED / THINKING / TEXT_DELTA / TOOL_CALL /
             TOOL_RESULT / FINISHED / ERROR，载荷为事件对象的 JSON。
             事件类型定义见 com.ragwiki.agent.protocol.Event。
-            FINISHED 是唯一终止事件，reason 取值 COMPLETED / MAX_STEPS / CANCELLED / FAILED。""")
+            FINISHED 是唯一终止事件，reason 取值 COMPLETED / MAX_STEPS / CANCELLED / FAILED。
+            同一 sessionId 已有回合在跑时，新请求直接以 ERROR + FINISHED(FAILED) 结束，不排队。""")
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chat(@Valid @RequestBody ChatRequest request) {
         SseEmitter emitter = new SseEmitter(properties.sseTimeout().toMillis());
