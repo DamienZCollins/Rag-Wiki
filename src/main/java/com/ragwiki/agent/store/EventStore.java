@@ -40,7 +40,11 @@ public class EventStore {
         agentEventMapper.insert(record);
     }
 
-    /** 按顺序回放出一轮对话的全部事件，用于恢复会话上下文 */
+    /**
+     * 按顺序回放出一轮对话的全部事件，用于恢复会话上下文。
+     * 任一载荷损坏即整段失败：跳过坏事件会让上下文与真实历史对不上（比如少一条工具结果），
+     * 宁可让调用方按空上下文重来。
+     */
     public List<Event> replay(long conversationId) {
         List<AgentEvent> records = agentEventMapper.selectList(Wrappers.<AgentEvent>lambdaQuery()
                 .eq(AgentEvent::getConversationId, conversationId)

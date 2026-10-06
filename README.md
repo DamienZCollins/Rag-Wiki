@@ -104,6 +104,10 @@ curl -X POST http://localhost:8080/api/fastpath/entries/publish
 curl -X POST http://localhost:8080/api/fastpath/distill
 ```
 
+编译、派生、发布是一条链：`/wiki/compile` 更新条目标题与来源，`/entries/derive` 按条目重新派生候选，
+`/entries/publish` 才让候选生效、并把来源已失效的条目下线。候选条目的**答案正文在派生时固化**，
+所以政策改版后只编译不派生，快通道仍会答旧内容。
+
 **快慢分流在 `POST /api/chat` 里**：Agent 先试快通道，命中就直接答（事件流里没有 `THINKING`、
 没有 `TOOL_CALL`，也就没有任何模型调用），未命中才走内层循环检索生成。两条通道互斥，不会既直答又检索。
 

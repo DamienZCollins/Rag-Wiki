@@ -55,7 +55,7 @@ public class WikiController {
             离线批处理，不在在线问答链路上。
             不给 sourceDocId 就编译全部生效文档；incremental 控制只重算输入变化的文档。
             报告里给出新建 / 更新 / 失效 / 跳过的条目与文档，便于核对数字与实际改动。
-            编译完成后清理快通道缓存，避免返回过期答案。""")
+            编译会改动条目标题与来源，完成后清一次快通道场景缓存；答案正文的更新要重新派生并发布。""")
     @PostMapping("/compile")
     public Result<CompileReport> compile(@RequestBody(required = false) CompileRequest request) {
         CompileRequest effective = request == null ? new CompileRequest(null, true) : request;

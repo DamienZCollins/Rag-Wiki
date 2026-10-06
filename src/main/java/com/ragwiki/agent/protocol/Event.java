@@ -10,8 +10,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  * <p>同一套定义同时供 SSE 推送与事件持久化使用，SSE 的事件名取 {@link EventType} 的名字。
  * 事件载荷带 type 判别字段，可以直接反序列化回具体类型。
  *
- * <p>流以 {@link Finished} 作为唯一终止事件。中途出错时先发 {@link Error} 再发
- * {@code Finished(FAILED)}，客户端只需要认一个终止信号。
+ * <p>流以 {@link Finished} 作为唯一终止事件，客户端只需要认这一个终止信号。{@link Error} 是流内提示，
+ * 会出现在两种终态之前：{@code Finished(FAILED)} 表示真出错，code 取 ResultCode 的数值码；
+ * {@code Finished(MAX_STEPS)} 表示步数触顶，code 用事件名 {@code MAX_STEPS}，提示用户转人工。
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
