@@ -217,3 +217,80 @@ CREATE TABLE IF NOT EXISTS aftersale_ticket
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci COMMENT ='售后工单';
+
+-- ---------- 评测用例 ----------
+-- eval/cases/*.jsonl 的导入快照，用例源文件才是唯一事实源。
+-- 表用于关联 eval_run 的逐条结果、跑 SQL 统计与按 case_id 对账
+CREATE TABLE IF NOT EXISTS eval_case
+(
+    id                    BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    case_id               VARCHAR(64)  NOT NULL COMMENT '用例标识，源文件里的 case_id',
+    case_type             VARCHAR(16)  NOT NULL COMMENT '类型：POLICY 政策问答 / ORDER 订单查询 / REFUSAL 拒答 / ADVERSARIAL 对抗样本',
+    question              VARCHAR(500) NOT NULL COMMENT '送进链路的问题',
+    expected_answer_points JSON        NOT NULL COMMENT '期望答案要点，逐条判定是否出现',
+    expected_sources      JSON         NOT NULL COMMENT '期望命中的 Wiki 条目标题',
+    expected_doc_ids      JSON         NOT NULL COMMENT '期望命中的来源文档 doc_id',
+    expect_refusal        TINYINT(1)   NOT NULL COMMENT '是否应拒答',
+    expect_tools          JSON         NOT NULL COMMENT '期望触发的工具名',
+    expected_tool_args    JSON         NULL COMMENT '工具参数期望，仅订单类用例有值',
+    forbidden_points      JSON         NOT NULL COMMENT '出现即判错的要点，对抗样本用',
+    attribution_layer     VARCHAR(16)  NULL COMMENT '期望归因层，仅作人工核对参考',
+    note                  VARCHAR(500) NULL COMMENT '用例来源与设计意图',
+    source_file           VARCHAR(64)  NOT NULL COMMENT '来源文件，如 policy.jsonl',
+    created_at            DATETIME(3)  NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_eval_case_case_id (case_id),
+    KEY idx_eval_case_type (case_type)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='评测用例导入快照';
+
+-- ---------- 评测批次 ----------
+-- 一次 run 一行，配置与汇总指标都固化在这里，保证可比与可复现
+CREATE TABLE IF NOT EXISTS eval_run
+(
+    id             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    run_id         VARCHAR(64)  NOT NULL COMMENT '批次标识',
+    label          VARCHAR(200) NOT NULL COMMENT '批次说明，如「wiki 索引 + 双通道」',
+    case_types     VARCHAR(128) NOT NULL COMMENT '本次跑的用例类型，逗号分隔',
+    config         JSON         NOT NULL COMMENT '配置快照：索引源、索引名、通道开关、模型、prompt 版本、切分参数、拒答阈值等',
+    case_count     INT          NOT NULL COMMENT '用例数',
+    passed         INT          NOT NULL COMMENT '通过用例数',
+    failed         INT          NOT NULL COMMENT '失败用例数',
+    metrics        JSON         NOT NULL COMMENT '汇总指标，口径见 docs/评测报告.md',
+    attribution    JSON         NOT NULL COMMENT '归因分布：各层失败数',
+    latency_ms     BIGINT       NOT NULL COMMENT '批次总耗时',
+    status         VARCHAR(16)  NOT NULL COMMENT '状态：RUNNING 进行中 / COMPLETED 已完成 / INTERRUPTED 中断可续跑 / FAILED 失败',
+    started_at     DATETIME(3)  NOT NULL COMMENT '开始时间',
+    finished_at    DATETIME(3)  NULL COMMENT '结束时间',
+    created_at     DATETIME(3)  NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_eval_run_run_id (run_id),
+    KEY idx_eval_run_started (started_at)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='评测批次';
+
+-- ---------- 评测逐条结果 ----------
+-- 一条用例在一个批次里的结果与归因。失败用例能从这里定位到具体是哪条退化
+CREATE TABLE IF NOT EXISTS eval_result
+(
+    id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    run_id            VARCHAR(64)  NOT NULL COMMENT '批次标识',
+    case_id           VARCHAR(64)  NOT NULL COMMENT '用例标识',
+    passed            TINYINT(1)   NOT NULL COMMENT '是否通过',
+    channel           VARCHAR(16)  NOT NULL COMMENT '实际走通的通道：FASTPATH / RAG',
+    attribution_layer VARCHAR(16)  NULL COMMENT '归因层：COMPILE / RECALL / RERANK / GENERATION / FALLBACK / NONE',
+    detail            JSON         NULL COMMENT '判定明细：要点命中、来源命中、工具调用、拒答判定、两路分数、片段列表等',
+    answer            MEDIUMTEXT   NULL COMMENT '模型最终回答，失败复核用',
+    latency_ms        INT          NOT NULL COMMENT '本条耗时',
+    token_in          INT          NULL COMMENT '输入 token，快通道为空',
+    token_out         INT          NULL COMMENT '输出 token，快通道为空',
+    error             VARCHAR(500) NULL COMMENT '执行异常信息',
+    created_at        DATETIME(3)  NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_eval_result_run_case (run_id, case_id),
+    KEY idx_eval_result_run (run_id, passed)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci COMMENT ='评测逐条结果';
