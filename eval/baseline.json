@@ -1,0 +1,13 @@
+{
+  "runId" : "run-1792057705979-46fb0b2d",
+  "label" : "R13 wiki 索引 + 双通道",
+  "metrics" : {
+    "passRate" : 0.7049,
+    "recallRate" : 1.0,
+    "mrr" : 0.9277,
+    "top1Rate" : 0.8889,
+    "refusalCorrectRate" : 0.6364,
+    "answerPointRate" : 0.7386,
+    "hallucinationRate" : 0.0984
+  }
+}
