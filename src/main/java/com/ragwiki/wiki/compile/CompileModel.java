@@ -50,6 +50,11 @@ public class CompileModel {
 
     private final ChatClient compileClient;
     private final ObjectMapper objectMapper;
+    /** 编译期的模型 token 用量累计。编译是离线批处理，评测要报编译成本 */
+    private final java.util.concurrent.atomic.AtomicLong tokenIn = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong tokenOut = new java.util.concurrent.atomic.AtomicLong();
+    /** 编译期调用模型的次数 */
+    private final java.util.concurrent.atomic.AtomicInteger callCount = new java.util.concurrent.atomic.AtomicInteger();
 
     public CompileModel(@Qualifier("compileChatClient") ChatClient compileClient,
                         ObjectMapper objectMapper) {
@@ -169,10 +174,31 @@ public class CompileModel {
         return report.conflicts();
     }
 
+    /** 模型用量快照：调用次数 / 输入 token / 输出 token */
+    public record Usage(int calls, long promptTokens, long completionTokens) {
+        public long totalTokens() {
+            return promptTokens + completionTokens;
+        }
+    }
+
+    public Usage usage() {
+        return new Usage(callCount.get(), tokenIn.get(), tokenOut.get());
+    }
+
+    /** 清空用量累计，编译前调一次，拿到本轮编译的净用量 */
+    public void resetUsage() {
+        callCount.set(0);
+        tokenIn.set(0);
+        tokenOut.set(0);
+    }
+
     private Completion complete(String system, String user) {
         List<ChatMessage> messages = List.of(ChatMessage.system(system), ChatMessage.user(user));
         List<String> deltas = new ArrayList<>();
         ChatCompletion completion = compileClient.stream(messages, List.of(), deltas::add);
+        callCount.incrementAndGet();
+        tokenIn.addAndGet(completion.usageOrEmpty().prompt());
+        tokenOut.addAndGet(completion.usageOrEmpty().completion());
 
         String content = completion.content() != null ? completion.content() : String.join("", deltas);
         return new Completion(content, completion.finishReason());

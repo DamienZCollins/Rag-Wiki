@@ -68,6 +68,7 @@ public class WikiCompiler {
      */
     public CompileReport compileAll(boolean incremental) {
         long startedAt = System.currentTimeMillis();
+        compileModel.resetUsage();
 
         List<SourceDoc> scanned = scan();
         // 规划必须在写库之前：先落库的话哈希已经被自己覆盖，比对永远判成没变化
@@ -101,6 +102,7 @@ public class WikiCompiler {
     /** 编译指定的一篇。允许编译已失效文档，用于复现历史状态 */
     public CompileReport compileOne(String docId) {
         long startedAt = System.currentTimeMillis();
+        compileModel.resetUsage();
 
         List<SourceDoc> scanned = scan();
         Map<String, SourceDoc> known = index(scanned);
@@ -364,6 +366,7 @@ public class WikiCompiler {
         List<String> failed = result.failedDocs();
 
         long elapsed = System.currentTimeMillis() - startedAt;
+        CompileModel.Usage usage = compileModel.usage();
         CompileReport report = new CompileReport(
                 compiled.stream().map(SourceDoc::getDocId).toList(),
                 skipped.stream().map(SourceDoc::getDocId).toList(),
@@ -375,9 +378,13 @@ public class WikiCompiler {
                 created,
                 updated,
                 retired.stream().map(RetirementDetector.RetiredPage::title).toList(),
-                elapsed);
-        log.info("编译完成：新建 {} / 更新 {} / 失效 {} / 失败 {}，耗时 {}ms",
-                report.created(), report.updated(), report.retired(), failed.size(), elapsed);
+                elapsed,
+                usage.calls(),
+                usage.promptTokens(),
+                usage.completionTokens());
+        log.info("编译完成：新建 {} / 更新 {} / 失效 {} / 失败 {}，耗时 {}ms，模型 {} 次调用 / {} token",
+                report.created(), report.updated(), report.retired(), failed.size(), elapsed,
+                usage.calls(), usage.totalTokens());
         return report;
     }
 }

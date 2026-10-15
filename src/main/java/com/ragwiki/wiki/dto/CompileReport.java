@@ -19,5 +19,12 @@ public record CompileReport(
         List<String> createdPages,
         List<String> updatedPages,
         List<String> retiredPages,
-        @Schema(description = "耗时毫秒") long elapsedMillis) {
+        @Schema(description = "耗时毫秒") long elapsedMillis,
+        @Schema(description = "编译期模型调用次数") int modelCalls,
+        @Schema(description = "编译期输入 token") long promptTokens,
+        @Schema(description = "编译期输出 token") long completionTokens) {
+
+    public long totalTokens() {
+        return promptTokens + completionTokens;
+    }
 }
