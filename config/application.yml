@@ -100,6 +100,8 @@ agent:
   sse-timeout: ${AGENT_SSE_TIMEOUT:180s}
   # 恢复会话上下文时最多带多少条历史消息
   max-history-messages: ${AGENT_HISTORY_MAX_MESSAGES:40}
+  # 快慢分流开关。关掉即纯 RAG 链路，供评测的对照组使用
+  fast-path-enabled: ${AGENT_FAST_PATH_ENABLED:true}
 
 # ---------- 检索 ----------
 rag:
@@ -150,3 +152,10 @@ ragwiki:
     ticket-dir: ${CORPUS_TICKET_DIR:corpus/tickets}
   wiki:
     page-dir: ${WIKI_PAGE_DIR:wiki/pages}
+  eval:
+    # 用例源文件目录，eval_case 表是它的导入快照
+    case-dir: ${EVAL_CASE_DIR:eval/cases}
+    # 回归门禁的基线文件
+    baseline: ${EVAL_BASELINE:eval/baseline.json}
+    # 门禁容差：比率型指标允许的波动幅度
+    tolerance: ${EVAL_TOLERANCE:0.02}
