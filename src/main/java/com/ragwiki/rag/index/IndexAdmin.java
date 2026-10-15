@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -27,7 +28,7 @@ import java.util.Set;
  * 切换索引源或改 mapping 时建新索引再改别名指向，不做原地改 mapping。
  */
 @Component
-public class IndexAdmin {
+public class IndexAdmin implements com.ragwiki.rag.api.IndexControlApi {
 
     private static final Logger log = LoggerFactory.getLogger(IndexAdmin.class);
     private static final String DIMS_PLACEHOLDER = "__DIMS__";
@@ -127,6 +128,40 @@ public class IndexAdmin {
 
     public String alias() {
         return properties.index().alias();
+    }
+
+    // ---------- IndexControlApi ----------
+
+    @Override
+    public String currentAliasTarget() {
+        String alias = properties.index().alias();
+        try {
+            Set<String> indices = client.indices().getAlias(request -> request.name(alias)).result().keySet();
+            return indices.isEmpty() ? null : indices.iterator().next();
+        } catch (IOException e) {
+            throw new UncheckedIOException("读取别名指向失败：" + alias, e);
+        }
+    }
+
+    @Override
+    public void switchAlias(String physicalIndex) {
+        if (!indexExists(physicalIndex)) {
+            throw new IllegalStateException("物理索引不存在，无法切换别名：" + physicalIndex);
+        }
+        String alias = properties.index().alias();
+        deleteAliasIfExists(alias);
+        createAlias(physicalIndex, alias);
+        log.info("别名 {} 已切换到 {}", alias, physicalIndex);
+    }
+
+    @Override
+    public List<String> physicalIndices() {
+        try {
+            return client.indices().get(request -> request.index("knowledge_*"))
+                    .result().keySet().stream().sorted().toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException("列出物理索引失败", e);
+        }
     }
 
     // ---------- 内部 ----------
