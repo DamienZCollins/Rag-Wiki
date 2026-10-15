@@ -187,22 +187,27 @@ public class OpenAiChatClient implements ChatClient {
             }
         }
 
-        // 工具调用是分片下发的：首片带 id 与 name，后续片只追加 arguments，按 index 归并
+        // 工具调用是分片下发的：首片带 id 与 name，后续片只追加 arguments，按 index 归并。
+        // id 与 name 只在拿到非空值时才写：部分实现后续片会带 "id":""、"name":"" 这类空串，
+        // 按 hasNonNull 判会把首片的真实值覆盖成空串，回填工具结果时就缺 tool_calls.id
         JsonNode calls = delta.get("tool_calls");
         if (calls != null && calls.isArray()) {
             for (JsonNode call : calls) {
                 PartialToolCall partial = toolCalls.computeIfAbsent(
                         call.path("index").asInt(0), index -> new PartialToolCall());
-                if (call.hasNonNull("id")) {
-                    partial.id = call.get("id").asText();
+                String id = call.path("id").asText("");
+                if (!id.isBlank()) {
+                    partial.id = id;
                 }
                 JsonNode function = call.get("function");
                 if (function != null) {
-                    if (function.hasNonNull("name")) {
-                        partial.name = function.get("name").asText();
+                    String name = function.path("name").asText("");
+                    if (!name.isBlank()) {
+                        partial.name = name;
                     }
-                    if (function.hasNonNull("arguments")) {
-                        partial.arguments.append(function.get("arguments").asText());
+                    JsonNode arguments = function.get("arguments");
+                    if (arguments != null && !arguments.isNull()) {
+                        partial.arguments.append(arguments.asText());
                     }
                 }
             }
@@ -216,8 +221,12 @@ public class OpenAiChatClient implements ChatClient {
             return List.of();
         }
         List<ToolCallRequest> result = new ArrayList<>(partials.size());
-        partials.forEach((index, partial) -> result.add(
-                ToolCallRequest.of(partial.id, partial.name, partial.arguments.toString())));
+        partials.forEach((index, partial) -> result.add(ToolCallRequest.of(
+                // 模型一个分片都没给 id 时补一个本地 id：回填工具结果要用它做关联，
+                // 缺了字段部分实现直接 400 拒绝整个请求
+                partial.id == null || partial.id.isBlank() ? "call_" + index : partial.id,
+                partial.name,
+                partial.arguments.toString())));
         return result;
     }
 
