@@ -89,8 +89,16 @@ public sealed interface Event {
         }
     }
 
-    /** 终止事件，携带终止原因 */
-    record Finished(FinishReason reason) implements Event {
+    /**
+     * 终止事件，携带终止原因与本轮模型 token 消耗。
+     * 快通道命中时没有模型调用，token 为零；用量也进事件流，评测按通道统计 token 时不用另找取数口径。
+     */
+    record Finished(FinishReason reason, int tokenIn, int tokenOut) implements Event {
+
+        public Finished(FinishReason reason) {
+            this(reason, 0, 0);
+        }
+
         @Override
         public EventType type() {
             return EventType.FINISHED;

@@ -141,7 +141,7 @@ public class AgentLoop {
                 log.debug("快通道命中 {}，本轮不调用模型", fast.entryId());
                 recorder.emit(new Event.TextDelta(fast.answer()));
                 persistMessage(conversationId, ROLE_ASSISTANT, fast.answer(), null, null);
-                recorder.emit(new Event.Finished(Event.FinishReason.COMPLETED));
+                recorder.emit(new Event.Finished(Event.FinishReason.COMPLETED, 0, 0));
                 return;
             }
 
@@ -168,6 +168,9 @@ public class AgentLoop {
 
     /** 快通道自己出问题不能把整轮卡死，异常一律当作未命中，降级走 RAG */
     private FastPathApi.Answer tryFastPath(String question) {
+        if (!properties.fastPathEnabled()) {
+            return FastPathApi.Answer.miss();
+        }
         try {
             return fastPathApi.answer(question);
         } catch (Exception e) {
@@ -212,7 +215,8 @@ public class AgentLoop {
                             conversationId);
                 }
                 persistMessage(conversationId, ROLE_ASSISTANT, completion.content(), null, null);
-                recorder.emit(new Event.Finished(Event.FinishReason.COMPLETED));
+                recorder.emit(new Event.Finished(Event.FinishReason.COMPLETED,
+                        usage[0].prompt(), usage[0].completion()));
                 return;
             }
 

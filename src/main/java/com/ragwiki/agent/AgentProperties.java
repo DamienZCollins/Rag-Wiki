@@ -18,5 +18,8 @@ public record AgentProperties(
         @DefaultValue("180s") Duration sseTimeout,
 
         /** 恢复会话上下文时最多带多少条历史消息 */
-        @DefaultValue("40") Integer maxHistoryMessages) {
+        @DefaultValue("40") Integer maxHistoryMessages,
+
+        /** 快慢分流开关。关掉就是纯 RAG 链路，供评测的对照组使用 */
+        @DefaultValue("true") Boolean fastPathEnabled) {
 }

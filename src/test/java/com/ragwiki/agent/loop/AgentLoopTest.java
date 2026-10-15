@@ -56,7 +56,7 @@ class AgentLoopTest {
 
     @BeforeEach
     void setUp() {
-        AgentProperties properties = new AgentProperties(MAX_STEPS, Duration.ofSeconds(60), 40);
+        AgentProperties properties = new AgentProperties(MAX_STEPS, Duration.ofSeconds(60), 40, true);
         agentLoop = new AgentLoop(chatClient, toolRegistry, conversationStore, eventStore,
                 conversationHistory, properties, new ObjectMapper(), fastPathApi, turnLock);
         // 这些用例针对的是慢通道的内层循环，快通道一律判未命中
