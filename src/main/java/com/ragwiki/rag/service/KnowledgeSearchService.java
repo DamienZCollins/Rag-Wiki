@@ -3,6 +3,7 @@ package com.ragwiki.rag.service;
 import com.ragwiki.common.exception.BusinessException;
 import com.ragwiki.common.result.ResultCode;
 import com.ragwiki.rag.RagProperties;
+import com.ragwiki.rag.api.KnowledgeProbeApi;
 import com.ragwiki.rag.api.KnowledgeSearchApi;
 import com.ragwiki.rag.dto.ChunkHit;
 import com.ragwiki.rag.dto.FusedChunk;
@@ -25,7 +26,7 @@ import java.util.List;
  * 与「两路分数都低」的超范围拒答区分开。
  */
 @Service
-public class KnowledgeSearchService implements KnowledgeSearchApi {
+public class KnowledgeSearchService implements KnowledgeSearchApi, KnowledgeProbeApi {
 
     private final Bm25Searcher bm25Searcher;
     private final VectorSearcher vectorSearcher;
@@ -57,6 +58,21 @@ public class KnowledgeSearchService implements KnowledgeSearchApi {
      * @param indexOverride 指定物理索引，用于索引源对照实验；为空时走别名
      */
     public SearchOutcome searchDetailed(String question, String indexOverride) {
+        FullOutcome full = searchFull(question, indexOverride);
+        if (full.refused()) {
+            return new SearchOutcome(question, List.of(), true, full.topBm25Score(), full.topVectorScore());
+        }
+        List<FusedChunk> fused = full.fused();
+        int topK = Math.min(properties.topK(), fused.size());
+        return new SearchOutcome(question, List.copyOf(fused.subList(0, topK)), false,
+                full.topBm25Score(), full.topVectorScore());
+    }
+
+    /**
+     * 融合后不截断的完整结果。检索探针用它区分「没召回」与「召回了但排在生效位次之外」：
+     * 前者是召回层的问题，后者是排序层的问题，截断之后这两个就分不开了。
+     */
+    private FullOutcome searchFull(String question, String indexOverride) {
         if (indexOverride == null) {
             indexAdmin.requireIndexReady();
         }
@@ -74,12 +90,13 @@ public class KnowledgeSearchService implements KnowledgeSearchApi {
         double topVector = RefusalJudge.topScore(vectorHits);
 
         if (refusalJudge.shouldRefuse(bm25Hits, vectorHits)) {
-            return new SearchOutcome(question, List.of(), true, topBm25, topVector);
+            return new FullOutcome(List.of(), true, topBm25, topVector);
         }
+        return new FullOutcome(rrfFuser.fuse(bm25Hits, vectorHits), false, topBm25, topVector);
+    }
 
-        List<FusedChunk> fused = rrfFuser.fuse(bm25Hits, vectorHits);
-        int topK = Math.min(properties.topK(), fused.size());
-        return new SearchOutcome(question, List.copyOf(fused.subList(0, topK)), false, topBm25, topVector);
+    private record FullOutcome(List<FusedChunk> fused, boolean refused,
+                               double topBm25Score, double topVectorScore) {
     }
 
     @Override
@@ -101,5 +118,26 @@ public class KnowledgeSearchService implements KnowledgeSearchApi {
                     chunk.meta().content()));
         }
         return new KnowledgeSearchOutcome(true, List.copyOf(citations));
+    }
+
+    @Override
+    public ProbeResult probe(String question) {
+        FullOutcome full = searchFull(question, null);
+        List<ProbeChunk> chunks = new ArrayList<>(full.fused().size());
+        for (FusedChunk chunk : full.fused()) {
+            chunks.add(new ProbeChunk(
+                    chunk.meta().chunkId(),
+                    chunk.meta().docId(),
+                    chunk.meta().pageId(),
+                    chunk.meta().sourceDocs(),
+                    chunk.meta().title(),
+                    chunk.meta().headingPath(),
+                    chunk.meta().content(),
+                    chunk.bm25Score(),
+                    chunk.vectorScore(),
+                    chunk.rrfScore()));
+        }
+        return new ProbeResult(full.refused(), full.topBm25Score(), full.topVectorScore(),
+                properties.candidateWindow(), properties.topK(), List.copyOf(chunks));
     }
 }
