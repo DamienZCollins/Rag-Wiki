@@ -150,7 +150,7 @@ curl -X POST http://localhost:8080/api/rag/index/rebuild
 `knowledge_chunks`。**切换索引源只需要改别名指向**，不用改代码也不用重启：
 
 ```bash
-curl -X POST http://localhost:9200/_aliases -H 'Content-Type: application/json' -d '{"actions":[{"remove":{"index":"knowledge_wiki_v1","alias":"knowledge_chunks"}},{"add":{"index":"knowledge_doc_v1","alias":"knowledge_chunks","is_write_index":true}}]}'
+curl -X POST http://localhost:19200/_aliases -H 'Content-Type: application/json' -d '{"actions":[{"remove":{"index":"knowledge_wiki_v1","alias":"knowledge_chunks"}},{"add":{"index":"knowledge_doc_v1","alias":"knowledge_chunks","is_write_index":true}}]}'
 ```
 
 改动 `rag.index.source` 只影响「重建时写哪套语料、建哪个物理索引」，不影响在线检索走哪个索引。
@@ -284,9 +284,9 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 
 | 服务 | 地址 |
 | --- | --- |
-| MySQL | `localhost:3306`，库 `rag_wiki`，应用账号 `rag_wiki` |
-| Redis | `localhost:6379` |
-| Elasticsearch | http://localhost:9200 |
+| MySQL | `localhost:13306`，库 `rag_wiki`，应用账号 `rag_wiki` |
+| Redis | `localhost:16379` |
+| Elasticsearch | http://localhost:19200 |
 | 应用 | `localhost:8080` |
 
 端口与账号全部可用 `.env` 覆盖，默认值仅用于本地开发。

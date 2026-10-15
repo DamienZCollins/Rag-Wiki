@@ -13,7 +13,7 @@ spring:
     # Connector/J 8 起在 MySQL 8 上会自动协商到服务端的 utf8mb4
     # connectionTimeZone 用 IANA 时区名（不写 +08:00，避免 URL 里 + 号转义问题），
     # 未加 forceConnectionTimeZoneToSession 时只影响驱动侧换算，不下发 SET time_zone
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:rag_wiki}?characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:13306}/${MYSQL_DATABASE:rag_wiki}?characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:rag_wiki}
     password: ${MYSQL_PASSWORD:rag_wiki}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -25,12 +25,12 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT:16379}
       password: ${REDIS_PASSWORD:redis123456}
       database: 0
       timeout: 3s
   elasticsearch:
-    uris: ${ES_URIS:http://localhost:9200}
+    uris: ${ES_URIS:http://localhost:19200}
     connection-timeout: 5s
     socket-timeout: 30s
 

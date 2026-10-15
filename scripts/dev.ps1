@@ -52,7 +52,7 @@ $MysqlUser = Get-EnvOrDefault 'MYSQL_USER' 'rag_wiki'
 $MysqlPassword = Get-EnvOrDefault 'MYSQL_PASSWORD' 'rag_wiki'
 $MysqlRootPassword = Get-EnvOrDefault 'MYSQL_ROOT_PASSWORD' 'root123456'
 $RedisPassword = Get-EnvOrDefault 'REDIS_PASSWORD' 'redis123456'
-$EsUris = Get-EnvOrDefault 'ES_URIS' 'http://localhost:9200'
+$EsUris = Get-EnvOrDefault 'ES_URIS' 'http://localhost:19200'
 $HealthTimeout = [int](Get-EnvOrDefault 'HEALTH_TIMEOUT' '240')
 $HealthInterval = 5
 
