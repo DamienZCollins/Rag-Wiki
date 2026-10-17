@@ -10,7 +10,38 @@
 
 Java 21 · Spring Boot 3 · MyBatis-Plus · MySQL 8.4 · Redis 7.4 · Elasticsearch 8.15 · OpenAI 兼容接口 · Markdown + Git
 
+## 目录结构
+
+```text
+.
+├── backend/                    # 后端开发入口（Spring Boot 与运行依赖）
+│   ├── src/
+│   ├── pom.xml
+│   ├── config/                 # Spring Boot 配置模板与个人覆盖示例
+│   ├── corpus/                 # 语料：售后政策与历史工单
+│   ├── wiki/                   # Wiki 编译产物
+│   ├── eval/                   # 评测用例、基线与批次数据
+│   ├── sql/                    # 建表与演示数据
+│   ├── scripts/                # 中间件管理与语料校验脚本
+│   ├── docs/                   # 后端设计文档：总体方案、开发路径、拆分任务
+│   ├── docker-compose.yml      # 本地中间件编排
+│   └── .env.example
+├── frontend/                   # 前端开发目录，当前为空
+├── docs/                       # 项目公共文档：接口文档、评测报告、评测指标口径
+├── README.md
+└── AGENTS.md
+```
+
+`backend/` 与 `frontend/` 是相互独立的开发入口。后端源码不跨目录引用前端，前端通过 HTTP 接口访问后端，
+契约见 [接口文档](docs/接口文档.md)。
+
 ## 快速开始
+
+后端位于 `backend/`，以下命令均在该目录执行：
+
+```bash
+cd backend
+```
 
 ### 1. 准备本地配置
 
@@ -132,7 +163,7 @@ curl -X POST http://localhost:8080/api/wiki/lint
 curl 'http://localhost:8080/api/wiki/pages?status=ALL'
 ```
 
-条目正文落在 `wiki/pages/<page_id>.md`，元数据在 `wiki_page` 表。
+条目正文落在 `wiki/pages/<page_id>.md`，元数据在 `wiki_page` 表。`wiki/pages` 相对于 `backend/`。
 正文结构固定为四段：摘要 / 适用条件 / 例外 / 关联条目——结构固定才好 diff。
 
 **应用不做自动 git 提交**：编译产物该由人看过 diff 之后再提交，应用在后台改仓库状态是意外副作用。
@@ -170,7 +201,7 @@ curl -X POST http://localhost:8080/api/rag/search \
 拒答判定用的是**单路原始分**，不是融合分——融合分只反映名次，没有绝对量纲。
 两个阈值在 `config/application.yml` 的 `rag.refuse.*`，是拿真 embedding 在语料上标定出来的
 （当前语料 + Qwen3-Embedding-0.6B 下，完全无关问题的向量分上限约 0.71，范围内问题下限约 0.74）。
-**换 embedding 模型、扩语料、改切分策略都要重新标定**，标定方法见 `docs/拆分任务/阶段3/阶段3-验收记录.md` 第 6 节。
+**换 embedding 模型、扩语料、改切分策略都要重新标定**，标定方法见 `docs/拆分任务/阶段3/阶段3-验收记录.md` 第 6 节（后端文档，位于 `backend/docs/`）。
 
 ## 对话接口
 
@@ -208,7 +239,9 @@ java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location
 
 桩只替换模型输出，流式协议解析、SSE 推送、工具调用、落库、恢复都由本项目代码真实执行。
 
-## 目录结构
+## 后端目录结构
+
+`backend/` 内部按「模块优先、模块内分层」组织：
 
 ```text
 ├── .gitattributes            统一换行符为 LF，避免 clone 后脚本在 Git Bash 下失效
@@ -235,11 +268,17 @@ java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location
 │   └── README.md             格式说明与刻意埋设的验证点
 ├── wiki/
 │   └── pages/                Wiki 编译产物，一个条目一个 Markdown 文件
+├── docs/                     后端设计文档：总体方案、开发路径、拆分任务
+├── eval/                     评测用例、回归基线与各批次数据
 └── scripts/
     ├── dev.sh                中间件管理（bash）
     ├── dev.ps1               中间件管理（PowerShell，需保持 UTF-8 BOM）
     └── check-corpus.py       语料校验
 ```
+
+依赖方向：`agent / wiki / rag / eval` 只依赖 `common`，`config` 只做装配。业务模块之间不互相引用内部类，需要协作走对方 `api` 包暴露的接口。
+
+`corpus/README.md` 里登记了几个**刻意埋设**的验证点（版本冲突、跨文档重叠、孤页候选），不要当作脏数据清理。
 
 依赖方向：`agent / wiki / rag / eval` 只依赖 `common`，`config` 只做装配。业务模块之间不互相引用内部类，需要协作走对方 `api` 包暴露的接口。
 
@@ -263,7 +302,7 @@ config/application-local.yml.example  覆盖示例，入库
 实际被另一处盖住，排查起来很费时间（阶段 3 标定拒答阈值时就踩过一次）。
 需要临时覆盖时，把 `application.yml` 里 `${}` 中的变量名设进环境即可。
 
-应用启动时从仓库根的 `config/` 目录额外加载配置：
+应用启动时从 `backend/` 的 `config/` 目录额外加载配置：
 
 ```bash
 java -jar app.jar --spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local
@@ -298,7 +337,7 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 - ES 官方镜像**不含**中文分词插件，检索用内置的 `cjk`（bigram）分析器
 - 本地为固定开发凭据，真实环境必须全部替换并启用 ES 认证
 - 数据库连接不在应用启动时校验：HikariCP 首次取连接才建池，库不可用时应用仍会启动，状态由 `/actuator/health` 暴露（`db: DOWN`，HTTP 503）
-- **跑 `mvn test` 需要中间件已启动**：集成测试跑的是真实 MySQL 与真实 HTTP，不是内存替身。测试通过 surefire 的 `spring.config.additional-location` 直接加载仓库根的 `config/application.yml`，不另外维护一份测试配置
+- **跑 `mvn test` 需要中间件已启动**：集成测试跑的是真实 MySQL 与真实 HTTP，不是内存替身。测试通过 surefire 的 `spring.config.additional-location` 直接加载 `backend/config/application.yml`，不另外维护一份测试配置
 
 ## 阶段进度
 
