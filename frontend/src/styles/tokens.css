@@ -1,0 +1,72 @@
+/* 设计令牌。取值与 frontend/docs/前端设计/静态原型.html 逐项一致，变量名不改写。
+   明暗两套同名，切换只改根节点 data-theme，组件内不写死色值。 */
+:root {
+  --paper: #f6f3ec;
+  --paper-raised: #fffdf8;
+  --paper-sunken: #efeae0;
+  --paper-deep: #e9e2d4;
+  --ink: #1f2a33;
+  --ink-soft: #465662;
+  --ink-mute: #6d7b85;
+  --ink-faint: #98a2a8;
+  --line: #ddd5c7;
+  --line-soft: #e9e2d6;
+  --line-strong: #c8bda9;
+  --oxblood: #8e3b2f;
+  --oxblood-soft: #f4e6e1;
+  --oxblood-line: #dfc0b6;
+  --teal: #2f6b67;
+  --teal-soft: #e4eeeb;
+  --teal-line: #b5d2cb;
+  --amber: #a06a12;
+  --amber-soft: #f6ecd6;
+  --amber-line: #e5cf9e;
+  --green: #3f7048;
+  --green-soft: #e6efe2;
+  --green-line: #c8ddc2;
+  --blue: #3a5f86;
+  --blue-soft: #e5ecf4;
+  --blue-line: #c2d3e5;
+  --shadow: 0 28px 80px -36px rgba(66, 49, 26, 0.42);
+  --serif: 'Songti SC', 'STSong', 'Source Han Serif SC', 'Noto Serif SC', 'SimSun', serif;
+  --sans: 'MiSans', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei UI', 'Segoe UI',
+    sans-serif;
+  --mono: 'Cascadia Code', 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  --r-s: 7px;
+  --r-m: 11px;
+  --r-l: 16px;
+  --ease: cubic-bezier(0.2, 0.75, 0.25, 1);
+  /* 布局常量。断点固定 1280 / 1080 / 760，不新增 */
+  --sidebar-w: 248px;
+  --topbar-h: 62px;
+}
+
+html[data-theme='dark'] {
+  --paper: #161c20;
+  --paper-raised: #1d252a;
+  --paper-sunken: #12181c;
+  --paper-deep: #101519;
+  --ink: #eae5d9;
+  --ink-soft: #c3bfb3;
+  --ink-mute: #98a1a4;
+  --ink-faint: #778184;
+  --line: #303b40;
+  --line-soft: #283237;
+  --line-strong: #465256;
+  --oxblood: #e08a78;
+  --oxblood-soft: #32231f;
+  --oxblood-line: #5d3d33;
+  --teal: #7fbdb2;
+  --teal-soft: #1d2f2d;
+  --teal-line: #34514c;
+  --amber: #d9ab5d;
+  --amber-soft: #2f2818;
+  --amber-line: #5d4c28;
+  --green: #8fbf8c;
+  --green-soft: #21301f;
+  --green-line: #3c5539;
+  --blue: #9bb8d8;
+  --blue-soft: #1f2b38;
+  --blue-line: #33475d;
+  --shadow: 0 34px 100px -40px rgba(0, 0, 0, 0.8);
+}
