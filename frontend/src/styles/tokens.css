@@ -1,4 +1,4 @@
-/* 设计令牌。取值与 frontend/docs/前端设计/静态原型.html 逐项一致，变量名不改写。
+/* 设计令牌。取值与 docs/frontend/前端设计/静态原型.html 逐项一致，变量名不改写。
    明暗两套同名，切换只改根节点 data-theme，组件内不写死色值。 */
 :root {
   --paper: #f6f3ec;

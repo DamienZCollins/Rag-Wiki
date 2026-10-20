@@ -164,7 +164,7 @@ function Invoke-Health {
         Write-Host "[OK]   集群状态 $($health.status)，节点数 $($health.number_of_nodes)"
         $plugins = & docker exec $EsContainer bin/elasticsearch-plugin list 2>$null
         if ([string]::IsNullOrEmpty($plugins)) {
-            Write-Host '[OK]   无额外插件（中文分析用内置 cjk，见 docs/总体方案.md）'
+            Write-Host '[OK]   无额外插件（中文分析用内置 cjk，见 docs/backend/总体方案.md）'
         }
         else {
             Write-Host "[OK]   已装插件：$($plugins -join ', ')"

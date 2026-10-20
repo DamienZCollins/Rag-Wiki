@@ -153,7 +153,7 @@ cmd_health() {
     echo "[OK]   集群状态 $(printf '%s' "$health" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)，节点数 $(printf '%s' "$health" | grep -o '"number_of_nodes":[0-9]*' | cut -d: -f2)"
     local plugins
     plugins="$(docker exec "$ES_CONTAINER" bin/elasticsearch-plugin list 2>/dev/null || true)"
-    if [ -z "$plugins" ]; then echo "[OK]   无额外插件（中文分析用内置 cjk，见 docs/总体方案.md）"; else echo "[OK]   已装插件：${plugins}"; fi
+    if [ -z "$plugins" ]; then echo "[OK]   无额外插件（中文分析用内置 cjk，见 docs/backend/总体方案.md）"; else echo "[OK]   已装插件：${plugins}"; fi
   fi
 
   echo
