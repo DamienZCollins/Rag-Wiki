@@ -23,17 +23,32 @@ Java 21 · Spring Boot 3 · MyBatis-Plus · MySQL 8.4 · Redis 7.4 · Elasticsea
 │   ├── eval/                   # 评测用例、基线与批次数据
 │   ├── sql/                    # 建表与演示数据
 │   ├── scripts/                # 中间件管理与语料校验脚本
-│   ├── docs/                   # 后端设计文档：总体方案、开发路径、拆分任务
 │   ├── docker-compose.yml      # 本地中间件编排
 │   └── .env.example
-├── frontend/                   # 前端开发目录，当前为空
-├── docs/                       # 项目公共文档：接口文档、评测报告、评测指标口径
+├── frontend/                   # 前端开发入口（Vue 3 + Vite + TypeScript + Pinia）
+│   ├── src/                    # api / components / features / layouts / pages / router / sse / stores / styles
+│   ├── tests/e2e/              # Playwright 端到端用例
+│   ├── scripts/                # 截图、断点与主题持久化校验脚本
+│   ├── package.json
+│   └── playwright.config.ts
+├── docs/                       # 全部本地文档，不纳入版本库
+│   ├── 接口文档.md             # 接口、错误码与 SSE 事件约定
+│   ├── 评测报告.md             # 各批次评测结果与结论
+│   ├── 评测指标口径.md         # 指标定义与计算口径
+│   ├── backend/                # 后端总体方案、开发路径、阶段拆分与验收记录
+│   └── frontend/               # 前端总体方案、开发路径、阶段拆分与静态原型
 ├── README.md
-└── AGENTS.md
+└── AGENTS.md                   # 协作约定（本地，不入库）
 ```
 
 `backend/` 与 `frontend/` 是相互独立的开发入口。后端源码不跨目录引用前端，前端通过 HTTP 接口访问后端，
 契约见 [接口文档](docs/接口文档.md)。
+
+各端细节见 [后端说明](#快速开始) 与 [frontend/README.md](frontend/README.md)；
+构建产物（`backend/target/`、`frontend/dist/`、`node_modules/`、`playwright-report/`、`.artifacts/`）均已被忽略规则覆盖，不入库。
+
+文档不再分散在各端目录内，统一以根 `docs/` 为唯一入口，按 `backend/`、`frontend/` 区分归属。
+各端文档见 [后端文档](docs/backend/) 与 [前端文档](docs/frontend/)。
 
 ## 快速开始
 
@@ -115,6 +130,19 @@ curl http://localhost:8080/v3/api-docs
 ```
 
 Swagger UI 在 http://localhost:8080/swagger-ui/index.html
+
+### 6. 启动前端
+
+前端位于 `frontend/`，以下命令均在该目录执行：
+
+```bash
+cd frontend
+pnpm install
+pnpm dev          # http://127.0.0.1:5173
+```
+
+开发期 `/api` 与 `/actuator` 由 Vite 代理到 `VITE_API_BASE_URL`（默认 `http://localhost:8080`），
+前端只请求同源相对路径。质量门与设计约定见 [frontend/README.md](frontend/README.md)。
 
 ## 快通道接口
 
@@ -201,7 +229,7 @@ curl -X POST http://localhost:8080/api/rag/search \
 拒答判定用的是**单路原始分**，不是融合分——融合分只反映名次，没有绝对量纲。
 两个阈值在 `config/application.yml` 的 `rag.refuse.*`，是拿真 embedding 在语料上标定出来的
 （当前语料 + Qwen3-Embedding-0.6B 下，完全无关问题的向量分上限约 0.71，范围内问题下限约 0.74）。
-**换 embedding 模型、扩语料、改切分策略都要重新标定**，标定方法见 `docs/拆分任务/阶段3/阶段3-验收记录.md` 第 6 节（后端文档，位于 `backend/docs/`）。
+**换 embedding 模型、扩语料、改切分策略都要重新标定**，标定方法见 `docs/backend/拆分任务/阶段3/阶段3-验收记录.md` 第 6 节。
 
 ## 对话接口
 
@@ -268,7 +296,6 @@ java -jar target/rag-wiki-0.0.1-SNAPSHOT.jar --spring.config.additional-location
 │   └── README.md             格式说明与刻意埋设的验证点
 ├── wiki/
 │   └── pages/                Wiki 编译产物，一个条目一个 Markdown 文件
-├── docs/                     后端设计文档：总体方案、开发路径、拆分任务
 ├── eval/                     评测用例、回归基线与各批次数据
 └── scripts/
     ├── dev.sh                中间件管理（bash）
@@ -338,6 +365,10 @@ java -jar app.jar --spring.config.additional-location=optional:file:./config/ --
 - 本地为固定开发凭据，真实环境必须全部替换并启用 ES 认证
 - 数据库连接不在应用启动时校验：HikariCP 首次取连接才建池，库不可用时应用仍会启动，状态由 `/actuator/health` 暴露（`db: DOWN`，HTTP 503）
 - **跑 `mvn test` 需要中间件已启动**：集成测试跑的是真实 MySQL 与真实 HTTP，不是内存替身。测试通过 surefire 的 `spring.config.additional-location` 直接加载 `backend/config/application.yml`，不另外维护一份测试配置
+- 测试规模：232 个用例，全部通过；行覆盖率 84.1%，分支覆盖率 73.1%
+- 覆盖率报告在 `backend/target/site/jacoco/index.html`；`mvn test` 同时执行行覆盖率门禁（0.80），低于阈值构建失败
+- 模型在测试里统一用 `StubModelServer` 桩替身，不需要真实密钥；集成测试只要求本地三个中间件已启动
+- 集成测试会写 MySQL，但只写带随机后缀的临时行并在用例结束后删掉，不会清空本机已有数据
 
 ## 阶段进度
 
