@@ -9,6 +9,8 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -47,6 +49,9 @@ public final class StubModelServer implements AutoCloseable {
 
     private static final String FALLBACK_ANSWER = "你好，我是售后客服助手。可以告诉我订单号，或者直接描述遇到的问题。";
     private static final String TOOL_ANSWER_PREFIX = "已经帮你查到这张订单：";
+
+    /** 编译 / lint 的提示词里没有稳定可判的特征词，由测试按请求体里的标记登记固定回复 */
+    private final Map<String, String> scriptedAnswers = new ConcurrentHashMap<>();
 
     private final HttpServer server;
     private final ExecutorService executor;
@@ -104,7 +109,22 @@ public final class StubModelServer implements AutoCloseable {
         }
     }
 
-    private void emitPlan(OutputStream out, String body, String userText) throws IOException {        if (userText.contains(LOOP_TRIGGER)) {
+    /**
+     * 登记一条按标记匹配的固定回复。编译与 lint 的提示词里没有可稳定识别的业务词，
+     * 由测试把源文档标题、条目标题这类标记登记进来，命中即返回约定的 JSON。
+     */
+    public void script(String marker, String reply) {
+        scriptedAnswers.put(marker, reply);
+    }
+
+    private void emitPlan(OutputStream out, String body, String userText) throws IOException {
+        for (Map.Entry<String, String> entry : scriptedAnswers.entrySet()) {
+            if (body.contains(entry.getKey())) {
+                emitText(out, entry.getValue());
+                return;
+            }
+        }
+        if (userText.contains(LOOP_TRIGGER)) {
             emitToolCall(out, "SO20250901001");
             return;
         }
