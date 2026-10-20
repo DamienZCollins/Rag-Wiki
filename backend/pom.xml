@@ -25,6 +25,7 @@
              rest-client 留在 Boot 的默认版本上，客户端内部就对不齐了 -->
         <elasticsearch-client.version>8.15.3</elasticsearch-client.version>
         <parsson.version>1.1.7</parsson.version>
+        <jacoco.version>0.8.13</jacoco.version>
     </properties>
 
     <dependencies>
@@ -110,6 +111,50 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <!-- 测试阶段插桩，报告输出到 target/site/jacoco/ -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <!-- 行覆盖率门禁。阈值按实测值下浮 5 个点留出波动余量，
+                         后续补测试只会往上走，掉下来说明有未覆盖的新代码进来 -->
+                    <execution>
+                        <id>check</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
