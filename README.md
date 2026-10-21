@@ -7,9 +7,9 @@
 - **慢通道**：BM25 + 向量混合召回、RRF 融合、带引用生成，检索置信不足则拒答
 - **评测**：失败用例按编译 / 召回 / 排序 / 生成 / 兜底五层归因，跨批次复现，接入回归门禁
 
-![系统架构](assets/diagrams/rag-wiki-architecture.png)
+![系统架构](docs/diagrams/rag-wiki-architecture.png)
 
-> 可交互版本：[assets/diagrams/rag-wiki-architecture.html](assets/diagrams/rag-wiki-architecture.html)（单文件，支持缩放、路径追踪、明暗主题）。
+> 可交互版本：[docs/diagrams/rag-wiki-architecture.html](docs/diagrams/rag-wiki-architecture.html)（单文件，支持缩放、路径追踪、明暗主题）。
 
 ## 实测结果
 
@@ -47,11 +47,11 @@ Java 21 · Spring Boot 3 · MyBatis-Plus · MySQL 8.4 · Redis 7.4 · Elasticsea
 
 | 售后对话（快通道候选 + 慢通道检索） | Wiki 条目（四段式 + 双链） |
 | --- | --- |
-| ![对话](assets/screenshots/chat.png) | ![Wiki](assets/screenshots/wiki.png) |
+| ![对话](docs/screenshots/chat.png) | ![Wiki](docs/screenshots/wiki.png) |
 
 | 评测与归因 | 运维操作台 |
 | --- | --- |
-| ![评测](assets/screenshots/eval.png) | ![运维](assets/screenshots/ops.png) |
+| ![评测](docs/screenshots/eval.png) | ![运维](docs/screenshots/ops.png) |
 
 ## 双通道怎么工作
 
@@ -184,7 +184,6 @@ curl -X POST http://localhost:19200/_aliases -H 'Content-Type: application/json'
 
 ```text
 .
-├── assets/                     架构图与界面截图（README 引用）
 ├── backend/                    后端入口（Spring Boot 与运行依赖）
 │   ├── src/main/java/com/ragwiki/
 │   │   ├── common/             公共层：统一返回体、错误码、模型客户端、Markdown 解析
@@ -205,6 +204,10 @@ curl -X POST http://localhost:19200/_aliases -H 'Content-Type: application/json'
 │   ├── tests/e2e/              Playwright 端到端用例
 │   └── scripts/                截图、断点与主题持久化校验脚本
 ├── docs/                       设计文档（本地，不入库）
+│   ├── diagrams/               系统架构图（可交互 HTML + PNG 导出，入库）
+│   ├── screenshots/            界面截图（README 引用，入库）
+│   ├── backend/ frontend/      各端设计文档与阶段拆分（本地，不入库）
+│   └── 接口文档.md 评测报告.md 评测指标口径.md（本地，不入库）
 ├── README.md
 └── AGENTS.md                   协作约定（本地，不入库）
 ```

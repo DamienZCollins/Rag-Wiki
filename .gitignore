@@ -1,7 +1,10 @@
 # ---------- 本地文档与代理说明 ----------
 # 设计文档与协作约定留在本地，不进入版本库
 # 文档统一收敛在根 docs/：backend/ 与 frontend/ 子目录分别存放各端文档
-/docs/
+# 例外：架构图与界面截图随 README 发布，入库
+/docs/*
+!/docs/diagrams/
+!/docs/screenshots/
 /AGENTS.md
 
 # ---------- 调研材料 ----------
