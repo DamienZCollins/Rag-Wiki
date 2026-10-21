@@ -13,7 +13,8 @@
 
 ## 实测结果
 
-同一份 122 条用例、同一模型、同一判定器，只改一个变量跑出的四批数据：
+同一份 122 条用例、同一模型、同一判定器。前三批只改一个变量（索引源 / 快通道开关），
+第四批在 wiki 双通道基础上重标定拒答阈值并重建索引：
 
 | 指标 | wiki + 双通道 | doc + 双通道 | wiki + 纯 RAG | wiki + 双通道（阈值重标定） |
 | --- | --- | --- | --- | --- |
@@ -172,8 +173,9 @@ curl -X POST http://localhost:19200/_aliases -H 'Content-Type: application/json'
 ```
 
 拒答判定用的是**单路原始分**，不是融合分——融合分只反映名次，没有绝对量纲。
-两个阈值在 `config/application.yml` 的 `rag.refuse.*`（当前 8.5 / 0.715），是在 122 条用例的实测分数分布上
-扫出来的净最优解。**换 embedding 模型、扩语料、改切分策略都要重新标定**。
+两个阈值在 `config/application.yml` 的 `rag.refuse.*`（当前 8.0 / 0.72），是在 122 条用例的实测分数分布上
+扫出来的净最优解；R16 批次验证过 8.5 / 0.715 的净判定更优（拒答正确率 68.2%、误拒 3/100），
+但**尚未写回配置与基线**。**换 embedding 模型、扩语料、改切分策略都要重新标定**。
 
 两路都召回为空时接口按 `RAG_INDEX_EMPTY`（4001）报错，而不是判拒答——索引没建好是运维问题，
 不能伪装成「超出服务范围」。
@@ -235,6 +237,9 @@ config/application-local.yml.example  覆盖示例，入库
 | `model.compile` | Wiki 离线编译 | `COMPILE_` |
 
 `EMBEDDING_DIMENSIONS` 必须与 ES 索引 `dense_vector` 的 `dims` 一致，应用启动时校验，不一致直接启动失败。
+**维度一致不代表向量同源**：换成另一套 embedding 服务而维度恰好相同时，启动校验发现不了，
+表现为向量分整体塌到 0.55–0.60 的窄区间、正常问题与无关问题分数重叠（见 `docs/评测报告.md` 第 9、11 节，
+该问题已两次复现）。换 embedding 配置后必须重建索引，不能只看启动是否报错。
 
 ## 本地服务
 
@@ -255,7 +260,7 @@ cd backend && mvn test     # 需要中间件已启动
 cd frontend && pnpm typecheck && pnpm lint && pnpm test:e2e
 ```
 
-- 后端 232 个用例，全部通过；行覆盖率 84.1%，分支覆盖率 73.1%，`mvn test` 同时执行行覆盖率门禁（0.80）
+- 后端 232 个用例，全部通过；行覆盖率 84%（3,098 / 3,938），分支覆盖率 73%，`mvn test` 同时执行行覆盖率门禁（0.80）
 - 集成测试跑真实 MySQL 与真实 HTTP，不是内存替身；模型统一用 `StubModelServer` 桩替身，不需要真实密钥
 - 集成测试只写带随机后缀的临时行并在用例结束后删掉，不会清空本机已有数据
 - 前端 `typecheck` 必须带 `-p tsconfig.app.json`，根 `tsconfig.json` 是 project references 形式，直接跑会检查一个空配置
