@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "a70e2d30-a171-42ff-a804-001a60605c04",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "D:\\Dev\\Projects\\Rag-Wiki\\assets\\diagrams\\rag-wiki.architecture.json",
+  "output": "D:\\Dev\\Projects\\Rag-Wiki\\assets\\diagrams\\rag-wiki-architecture.html",
+  "specification": {
+    "sha256": "f468248354d602bf9edbc7b3c5c69bdd131e4cc147c8de2432674ad0fdd7ccc2",
+    "bytes": 5574
+  },
+  "artifact": {
+    "sha256": "01a2770f0a1735c076ad46ce5639ae717ab051fabe552391015d2757e96ce0e6",
+    "bytes": 830236
+  }
+}

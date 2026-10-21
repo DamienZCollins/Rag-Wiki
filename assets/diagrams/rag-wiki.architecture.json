@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "RAG-Wiki 售后知识问答系统",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": "rag-wiki-architecture.html"
+  },
+  "components": [
+    {
+      "id": "corpus",
+      "type": "external",
+      "label": "政策与工单语料",
+      "sublabel": "Markdown 源文档",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "wiki",
+      "type": "backend",
+      "label": "Wiki 编译",
+      "sublabel": "LLM 归并 · 正文入 Git",
+      "pos": [
+        290,
+        60
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "es",
+      "type": "database",
+      "label": "Elasticsearch 8",
+      "sublabel": "BM25 + 向量",
+      "pos": [
+        560,
+        60
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "users",
+      "type": "external",
+      "label": "售后工作台",
+      "sublabel": "浏览器",
+      "pos": [
+        40,
+        240
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Vue 3 前端",
+      "sublabel": "SSE 流式渲染",
+      "pos": [
+        290,
+        240
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "Agent 主循环",
+      "sublabel": "ReAct · 限步 · 工具调用",
+      "pos": [
+        560,
+        240
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "rag",
+      "type": "backend",
+      "label": "RAG 检索",
+      "sublabel": "双路召回 + RRF + 拒答",
+      "pos": [
+        830,
+        240
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "OpenAI 兼容模型",
+      "sublabel": "对话 / embedding / 编译",
+      "pos": [
+        1100,
+        240
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "fastpath",
+      "type": "backend",
+      "label": "快通道",
+      "sublabel": "条目精确匹配",
+      "pos": [
+        560,
+        420
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "场景缓存",
+      "pos": [
+        290,
+        420
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL 8",
+      "sublabel": "会话 / 条目 / 评测",
+      "pos": [
+        1100,
+        420
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "eval",
+      "type": "backend",
+      "label": "评测 runner",
+      "sublabel": "五层归因 + 回归门禁",
+      "pos": [
+        830,
+        420
+      ],
+      "size": [
+        160,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Spring Boot 3 模块化单体",
+      "wraps": [
+        "agent",
+        "fastpath",
+        "rag",
+        "eval"
+      ],
+      "pad": 26
+    }
+  ],
+  "connections": [
+    {
+      "id": "users-web",
+      "from": "users",
+      "to": "web",
+      "label": "HTTPS"
+    },
+    {
+      "id": "web-agent",
+      "from": "web",
+      "to": "agent",
+      "label": "SSE 事件流",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agent-rag",
+      "from": "agent",
+      "to": "rag",
+      "label": "未命中"
+    },
+    {
+      "id": "rag-llm",
+      "from": "rag",
+      "to": "llm",
+      "label": "生成 + 引用"
+    },
+    {
+      "id": "corpus-wiki",
+      "from": "corpus",
+      "to": "wiki",
+      "label": "内容哈希增量"
+    },
+    {
+      "id": "wiki-es",
+      "from": "wiki",
+      "to": "es",
+      "label": "索引同步"
+    },
+    {
+      "id": "rag-es",
+      "from": "rag",
+      "to": "es",
+      "label": "双路召回"
+    },
+    {
+      "id": "agent-fast",
+      "from": "agent",
+      "to": "fastpath",
+      "label": "命中"
+    },
+    {
+      "id": "fast-redis",
+      "from": "fastpath",
+      "to": "redis",
+      "label": "场景缓存"
+    },
+    {
+      "id": "agent-mysql",
+      "from": "agent",
+      "to": "mysql",
+      "label": "会话与事件"
+    },
+    {
+      "id": "eval-mysql",
+      "from": "eval",
+      "to": "mysql",
+      "label": "跑批结果"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "快通道",
+      "items": [
+        "命中 Wiki 条目即答，零 LLM 调用、零向量检索",
+        "评测集截留 21.3% 请求，P50 40 ms",
+        "命中集合跨批次逐条一致"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "慢通道",
+      "items": [
+        "BM25 + 向量双路召回，RRF 融合",
+        "答案带可追溯引用，越界即判失败",
+        "按单路原始分拒答，索引为空报未就绪"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "编译与评测",
+      "items": [
+        "14 篇约 1 万字编译为 72 条互链条目",
+        "内容哈希增量 + 双链一跳传播",
+        "五层归因 + 回归门禁守排序与召回"
+      ]
+    }
+  ]
+}
